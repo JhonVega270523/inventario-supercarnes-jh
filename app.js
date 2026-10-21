@@ -21,8 +21,16 @@ function dateText(value) {
   const d = new Date(`${value}T12:00:00`);
   return Number.isNaN(d.getTime()) ? escapeHTML(value) : d.toLocaleDateString("es-CO");
 }
-function statusPill(status) {
-  const c = status === "Bueno" ? "pill-green" : status === "Regular" ? "pill-amber" : status === "Dañado" || status === "En mantenimiento" ? "pill-red" : "pill-gray";
+function equipmentName(e) {
+  return [e?.marca, e?.referencia].filter(Boolean).join(" ");
+}
+function statusPill(status = "") {
+  const norm = String(status).toLowerCase();
+  let c = "pill-gray";
+  if (norm === "nuevo") c = "pill-blue";
+  else if (norm === "bueno") c = "pill-green";
+  else if (norm === "regular" || norm === "en mantenimiento") c = "pill-amber";
+  else if (norm === "de baja" || norm === "dañado" || norm === "danado") c = "pill-red";
   return `<span class="pill ${c}">${escapeHTML(status || "Sin definir")}</span>`;
 }
 function availabilityPill(available) {
@@ -72,23 +80,23 @@ function renderRecent() {
   const rows = equipment.slice(0,5);
   $("recentTable").innerHTML = rows.length ? rows.map(e => {
     const a = currentAssignment(e);
-    return `<tr><td><span class="equipment-name">${escapeHTML(e.marca)}</span><span class="subtext">${escapeHTML(e.tipo)}</span></td><td>${escapeHTML(e.tipo)}</td><td>${statusPill(e.estado)}</td><td>${availabilityPill(e.disponible)}</td><td>${escapeHTML(a?.asignadoA || "—")}</td><td><button class="action-btn" data-action="detail" data-id="${e.id}">Ver detalle</button></td></tr>`;
+    return `<tr><td><span class="equipment-name">${escapeHTML(equipmentName(e))}</span><span class="subtext">${escapeHTML(e.tipo)}</span></td><td>${escapeHTML(e.tipo)}</td><td>${statusPill(e.estado)}</td><td>${availabilityPill(e.disponible)}</td><td>${escapeHTML(a?.asignadoA || "—")}</td><td><button class="action-btn" data-action="detail" data-id="${e.id}">Ver detalle</button></td></tr>`;
   }).join("") : '<tr><td colspan="6" class="empty-cell">Aún no hay equipos. Registra el primero para comenzar.</td></tr>';
 }
 function renderInventory() {
   const term = $("searchInput").value.trim().toLowerCase();
   const avail = $("availabilityFilter").value;
-  const status = $("statusFilter").value;
+  const status = $("statusFilter").value.trim().toLowerCase();
   const filtered = equipment.filter(e => {
     const a = currentAssignment(e);
-    const text = [e.marca,e.tipo,e.perifericos,e.registradoPor || e.asignadoPor,a?.asignadoA,a?.area].join(" ").toLowerCase();
-    return (!term || text.includes(term)) && (!avail || e.disponible === avail) && (!status || e.estado === status);
+    const text = [e.marca,e.referencia,e.tipo,e.perifericos,e.registradoPor || e.asignadoPor,a?.asignadoA,a?.area].filter(Boolean).join(" ").toLowerCase();
+    return (!term || text.includes(term)) && (!avail || e.disponible === avail) && (!status || (e.estado || "").toLowerCase() === status);
   });
   $("inventoryCount").textContent = `${filtered.length} equipo${filtered.length === 1 ? "" : "s"}${filtered.length !== equipment.length ? ` de ${equipment.length}` : ""}`;
   $("inventoryTable").innerHTML = filtered.length ? filtered.map(e => {
     const a = currentAssignment(e);
     return `<tr>
-      <td><span class="equipment-name">${escapeHTML(e.marca)}</span><span class="subtext">${escapeHTML(e.tipo)}</span></td>
+      <td><span class="equipment-name">${escapeHTML(equipmentName(e))}</span><span class="subtext">${escapeHTML(e.tipo)}</span></td>
       <td>${statusPill(e.estado)}</td><td>${escapeHTML(e.perifericos || "—")}</td><td>${availabilityPill(e.disponible)}</td>
       <td>${escapeHTML(a?.asignadoA || "—")}<span class="subtext">${escapeHTML(a?.area || "")}</span></td><td>${dateText(a?.fecha)}</td>
       <td><div class="actions"><button class="action-btn" data-action="detail" data-id="${e.id}">Ver</button><button class="action-btn" data-action="edit" data-id="${e.id}">Editar</button>${e.disponible === "si" ? `<button class="action-btn" data-action="assign" data-id="${e.id}">Asignar</button>` : `<button class="action-btn" data-action="receive" data-id="${e.id}">Recibir</button>`}</div></td>
@@ -99,13 +107,13 @@ function renderAssignments() {
   const rows = [];
   equipment.forEach(e => (e.asignaciones || []).forEach(a => rows.push({e,a})));
   rows.sort((x,y) => (y.a.fecha || "").localeCompare(x.a.fecha || ""));
-  $("assignmentsTable").innerHTML = rows.length ? rows.map(({e,a}) => `<tr><td><span class="equipment-name">${escapeHTML(e.marca)}</span><span class="subtext">${escapeHTML(e.tipo)}</span></td><td>${escapeHTML(a.asignadoA)}</td><td>${escapeHTML(a.area)}</td><td>${dateText(a.fecha)}</td><td>${statusPill(a.estado)}</td><td>${escapeHTML(a.recibidoPor || "—")}</td></tr>`).join("") : '<tr><td colspan="6" class="empty-cell">No hay asignaciones registradas.</td></tr>';
+  $("assignmentsTable").innerHTML = rows.length ? rows.map(({e,a}) => `<tr><td><span class="equipment-name">${escapeHTML(equipmentName(e))}</span><span class="subtext">${escapeHTML(e.tipo)}</span></td><td>${escapeHTML(a.asignadoA)}</td><td>${escapeHTML(a.area)}</td><td>${dateText(a.fecha)}</td><td>${statusPill(a.estado)}</td><td>${escapeHTML(a.recibidoPor || "—")}</td></tr>`).join("") : '<tr><td colspan="6" class="empty-cell">No hay asignaciones registradas.</td></tr>';
 }
 function renderReturns() {
   const rows = [];
   equipment.forEach(e => (e.recepciones || []).forEach(r => rows.push({e,r})));
   rows.sort((x,y) => (y.r.fecha || "").localeCompare(x.r.fecha || ""));
-  $("returnsTable").innerHTML = rows.length ? rows.map(({e,r}) => `<tr><td><span class="equipment-name">${escapeHTML(e.marca)}</span><span class="subtext">${escapeHTML(e.tipo)}</span></td><td>${escapeHTML(r.recibidoDe)}</td><td>${escapeHTML(r.area)}</td><td>${dateText(r.fecha)}</td><td>${statusPill(r.estado)}</td><td>${r.firma ? `<a href="${r.firma}" target="_blank" rel="noopener">Ver firma</a>` : "—"}</td></tr>`).join("") : '<tr><td colspan="6" class="empty-cell">No hay recepciones registradas.</td></tr>';
+  $("returnsTable").innerHTML = rows.length ? rows.map(({e,r}) => `<tr><td><span class="equipment-name">${escapeHTML(equipmentName(e))}</span><span class="subtext">${escapeHTML(e.tipo)}</span></td><td>${escapeHTML(r.recibidoDe)}</td><td>${escapeHTML(r.area)}</td><td>${dateText(r.fecha)}</td><td>${statusPill(r.estado)}</td><td>${r.firma ? `<a href="${r.firma}" target="_blank" rel="noopener">Ver firma</a>` : "—"}</td></tr>`).join("") : '<tr><td colspan="6" class="empty-cell">No hay recepciones registradas.</td></tr>';
 }
 function updatePeripheralsDisplay() {
   const container = $("peripheralsDisplay");
@@ -187,10 +195,13 @@ function resetEquipmentForm() {
   $("equipmentForm").reset();
   $("equipmentId").value = "";
   $("equipmentDialogTitle").textContent = "Registrar equipo";
+  $("brand").value = "";
+  $("reference").value = "";
   $("available").value = "si";
   $("equipmentStatus").value = "Bueno";
   $("type").value = "";
   setPeripheralsValue("");
+  $("assignedBy").value = "";
 }
 
 function editEquipment(id) {
@@ -198,6 +209,7 @@ function editEquipment(id) {
   resetEquipmentForm();
   $("equipmentId").value = e.id;
   $("brand").value = e.marca || "";
+  $("reference").value = e.referencia || "";
 
   if (e.tipo) {
     const normalizedTarget = e.tipo.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -216,17 +228,43 @@ function editEquipment(id) {
     $("type").value = "";
   }
 
-  $("equipmentStatus").value = e.estado || "Bueno";
+  if (e.estado) {
+    const match = Array.from($("equipmentStatus").options).find(opt => opt.value.toLowerCase() === e.estado.toLowerCase());
+    if (match) {
+      $("equipmentStatus").value = match.value;
+    } else {
+      const customOpt = new Option(e.estado, e.estado, true, true);
+      $("equipmentStatus").add(customOpt);
+      $("equipmentStatus").value = e.estado;
+    }
+  } else {
+    $("equipmentStatus").value = "Bueno";
+  }
+
   $("available").value = e.disponible || "si";
   setPeripheralsValue(e.perifericos || "");
-  $("assignedBy").value = e.registradoPor || e.asignadoPor || "";
+
+  const regValue = e.registradoPor || e.asignadoPor || "";
+  if (regValue) {
+    const match = Array.from($("assignedBy").options).find(opt => opt.value.toLowerCase() === regValue.toLowerCase());
+    if (match) {
+      $("assignedBy").value = match.value;
+    } else {
+      const customOpt = new Option(regValue, regValue, true, true);
+      $("assignedBy").add(customOpt);
+      $("assignedBy").value = regValue;
+    }
+  } else {
+    $("assignedBy").value = "";
+  }
+
   $("equipmentDialogTitle").textContent = "Editar equipo";
   openDialog("equipmentDialog");
 }
 function prepareAssignment(id) {
   const e = equipment.find(x => x.id === id); if (!e) return;
   $("assignmentForm").reset(); clearPad("assignmentSignature");
-  $("assignmentEquipmentId").value = id; $("assignmentEquipmentLabel").textContent = `${e.marca} · ${e.tipo}`;
+  $("assignmentEquipmentId").value = id; $("assignmentEquipmentLabel").textContent = `${equipmentName(e)} · ${e.tipo}`;
   $("assignedDate").value = today(); $("assignedCondition").value = e.estado || "Bueno"; $("assignedPeripherals").value = e.perifericos || "";
   openDialog("assignmentDialog");
 }
@@ -234,7 +272,7 @@ function prepareReturn(id) {
   const e = equipment.find(x => x.id === id); if (!e) return;
   const a = currentAssignment(e);
   $("returnForm").reset(); clearPad("returnSignature");
-  $("returnEquipmentId").value = id; $("returnEquipmentLabel").textContent = `${e.marca} · ${e.tipo}`;
+  $("returnEquipmentId").value = id; $("returnEquipmentLabel").textContent = `${equipmentName(e)} · ${e.tipo}`;
   $("receivedDate").value = today(); $("receivedFrom").value = a?.asignadoA || "";
   $("receivedArea").value = a?.area || ""; $("receivedPeripherals").value = a?.perifericos || e.perifericos || "";
   $("receivedCondition").value = e.estado || "Bueno"; openDialog("returnDialog");
@@ -242,7 +280,7 @@ function prepareReturn(id) {
 async function saveEquipment(event) {
   event.preventDefault();
   const id = $("equipmentId").value;
-  const data = { marca:$("brand").value.trim(), tipo:$("type").value.trim(), estado:$("equipmentStatus").value, disponible:$("available").value, perifericos:$("peripherals").value.trim(), asignadoPor:$("assignedBy").value.trim(), registradoPor:$("assignedBy").value.trim(), updatedAt:serverTimestamp() };
+  const data = { marca:$("brand").value.trim(), referencia:$("reference").value.trim(), tipo:$("type").value.trim(), estado:$("equipmentStatus").value, disponible:$("available").value, perifericos:$("peripherals").value.trim(), asignadoPor:$("assignedBy").value.trim(), registradoPor:$("assignedBy").value.trim(), updatedAt:serverTimestamp() };
   try {
     if (id) await updateDoc(doc(db,equipmentCollection,id), data);
     else await addDoc(collection(db,equipmentCollection), {...data, asignaciones:[], recepciones:[], createdAt:serverTimestamp()});
@@ -271,12 +309,16 @@ async function saveReturn(event) {
 }
 function showDetail(id) {
   const e = equipment.find(x => x.id === id); if (!e) return;
-  $("historyTitle").textContent = `${e.marca} · ${e.tipo}`;
+  $("historyTitle").textContent = `${equipmentName(e)} · ${e.tipo}`;
   const aList = e.asignaciones || [], rList = e.recepciones || [];
   $("historyContent").innerHTML = `<div class="detail-grid">
-    <div class="detail-item"><small>Marca</small><strong>${escapeHTML(e.marca)}</strong></div><div class="detail-item"><small>Tipo</small><strong>${escapeHTML(e.tipo)}</strong></div>
-    <div class="detail-item"><small>Estado actual</small><strong>${escapeHTML(e.estado)}</strong></div><div class="detail-item"><small>Disponibilidad</small><strong>${e.disponible === "si" ? "Disponible" : "No disponible"}</strong></div>
-    <div class="detail-item"><small>Periféricos actuales</small><strong>${escapeHTML(e.perifericos || "—")}</strong></div><div class="detail-item"><small>Registrado por</small><strong>${escapeHTML(e.registradoPor || e.asignadoPor || "—")}</strong></div>
+    <div class="detail-item"><small>Marca</small><strong>${escapeHTML(e.marca)}</strong></div>
+    <div class="detail-item"><small>Referencia</small><strong>${escapeHTML(e.referencia || "—")}</strong></div>
+    <div class="detail-item"><small>Tipo</small><strong>${escapeHTML(e.tipo)}</strong></div>
+    <div class="detail-item"><small>Estado actual</small><strong>${escapeHTML(e.estado)}</strong></div>
+    <div class="detail-item"><small>Disponibilidad</small><strong>${e.disponible === "si" ? "Disponible" : "No disponible"}</strong></div>
+    <div class="detail-item"><small>Periféricos actuales</small><strong>${escapeHTML(e.perifericos || "—")}</strong></div>
+    <div class="detail-item full"><small>Registrado por</small><strong>${escapeHTML(e.registradoPor || e.asignadoPor || "—")}</strong></div>
   </div>
   <div class="history-block"><h3>Historial de asignaciones (${aList.length})</h3>${aList.length ? [...aList].reverse().map(a => `<div class="history-entry"><strong>${escapeHTML(a.asignadoA)}</strong> · ${escapeHTML(a.area)}<br>Fecha: ${dateText(a.fecha)} · Estado: ${escapeHTML(a.estado)}<br>Periféricos: ${escapeHTML(a.perifericos || "—")}<br>Recibido por: ${escapeHTML(a.recibidoPor || "—")}${a.firma ? `<br><img class="signature-preview" src="${a.firma}" alt="Firma de asignación">` : ""}</div>`).join("") : '<p class="empty-history">Sin asignaciones.</p>'}</div>
   <div class="history-block"><h3>Historial de recepciones (${rList.length})</h3>${rList.length ? [...rList].reverse().map(r => `<div class="history-entry"><strong>Recibido de: ${escapeHTML(r.recibidoDe)}</strong> · ${escapeHTML(r.area)}<br>Fecha: ${dateText(r.fecha)} · Estado: ${escapeHTML(r.estado)}<br>Periféricos: ${escapeHTML(r.perifericos || "—")}${r.firma ? `<br><img class="signature-preview" src="${r.firma}" alt="Firma de recepción">` : ""}</div>`).join("") : '<p class="empty-history">Sin recepciones.</p>'}</div>`;
