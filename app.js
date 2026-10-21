@@ -34,7 +34,10 @@ function statusPill(status = "") {
   else if (norm === "de baja" || norm === "dañado" || norm === "danado") c = "pill-red";
   return `<span class="pill ${c}">${escapeHTML(status || "Sin definir")}</span>`;
 }
-function availabilityPill(available) {
+function availabilityPill(available, status = "") {
+  if ((status || "").toLowerCase() === "de baja") {
+    return '<span class="pill pill-gray">✕ De baja</span>';
+  }
   return available === "si" ? '<span class="pill pill-green">● Disponible</span>' : '<span class="pill pill-red">● No disponible</span>';
 }
 function currentAssignment(item) {
@@ -66,8 +69,8 @@ async function loadEquipment() {
 }
 function renderAll() {
   const total = equipment.length;
-  const available = equipment.filter(e => e.disponible === "si").length;
-  const assigned = equipment.filter(e => e.disponible !== "si" && currentAssignment(e)).length;
+  const available = equipment.filter(e => e.disponible === "si" && (e.estado || "").toLowerCase() !== "de baja").length;
+  const assigned = equipment.filter(e => e.disponible !== "si" && (e.estado || "").toLowerCase() !== "de baja" && currentAssignment(e)).length;
   $("statTotal").textContent = total;
   $("statAvailable").textContent = available;
   $("statAssigned").textContent = assigned;
@@ -81,7 +84,7 @@ function renderRecent() {
   const rows = equipment.slice(0,5);
   $("recentTable").innerHTML = rows.length ? rows.map(e => {
     const a = currentAssignment(e);
-    return `<tr><td><span class="equipment-name">${escapeHTML(equipmentName(e))}</span><span class="subtext">${escapeHTML(e.tipo)}</span></td><td>${escapeHTML(e.tipo)}</td><td>${statusPill(e.estado)}</td><td>${availabilityPill(e.disponible)}</td><td>${escapeHTML(a?.asignadoA || "—")}</td><td><button class="action-btn" data-action="detail" data-id="${e.id}">Ver detalle</button></td></tr>`;
+    return `<tr><td><span class="equipment-name">${escapeHTML(equipmentName(e))}</span><span class="subtext">${escapeHTML(e.tipo)}</span></td><td>${escapeHTML(e.tipo)}</td><td>${statusPill(e.estado)}</td><td>${availabilityPill(e.disponible, e.estado)}</td><td>${escapeHTML(a?.asignadoA || "—")}</td><td><button class="action-btn" data-action="detail" data-id="${e.id}">Ver detalle</button></td></tr>`;
   }).join("") : '<tr><td colspan="6" class="empty-cell">Aún no hay equipos. Registra el primero para comenzar.</td></tr>';
 }
 function renderInventory() {
@@ -91,16 +94,39 @@ function renderInventory() {
   const filtered = equipment.filter(e => {
     const a = currentAssignment(e);
     const text = [e.marca,e.serial,e.referencia,e.tipo,e.perifericos,e.registradoPor || e.asignadoPor,a?.asignadoA,a?.area].filter(Boolean).join(" ").toLowerCase();
-    return (!term || text.includes(term)) && (!avail || e.disponible === avail) && (!status || (e.estado || "").toLowerCase() === status);
+
+    let matchesAvail = true;
+    if (avail === "baja") {
+      matchesAvail = (e.estado || "").toLowerCase() === "de baja";
+    } else if (avail === "si") {
+      matchesAvail = e.disponible === "si" && (e.estado || "").toLowerCase() !== "de baja";
+    } else if (avail === "no") {
+      matchesAvail = e.disponible === "no" && (e.estado || "").toLowerCase() !== "de baja";
+    }
+
+    const matchesStatus = !status || (e.estado || "").toLowerCase() === status;
+    const matchesTerm = !term || text.includes(term);
+
+    return matchesTerm && matchesAvail && matchesStatus;
   });
   $("inventoryCount").textContent = `${filtered.length} equipo${filtered.length === 1 ? "" : "s"}${filtered.length !== equipment.length ? ` de ${equipment.length}` : ""}`;
   $("inventoryTable").innerHTML = filtered.length ? filtered.map(e => {
     const a = currentAssignment(e);
+    const isBaja = (e.estado || "").toLowerCase() === "de baja";
+    let actionBtns = `<button class="action-btn" data-action="detail" data-id="${e.id}">Ver</button><button class="action-btn" data-action="edit" data-id="${e.id}">Editar</button>`;
+    if (!isBaja) {
+      if (e.disponible === "si") {
+        actionBtns += `<button class="action-btn" data-action="assign" data-id="${e.id}">Asignar</button>`;
+      } else {
+        actionBtns += `<button class="action-btn" data-action="receive" data-id="${e.id}">Recibir</button>`;
+      }
+      actionBtns += `<button class="action-btn btn-baja" data-action="decommission" data-id="${e.id}" title="Dar de baja al equipo">Dar de baja</button>`;
+    }
     return `<tr>
       <td><span class="equipment-name">${escapeHTML(equipmentName(e))}</span><span class="subtext">${escapeHTML(e.tipo)}</span></td>
-      <td>${statusPill(e.estado)}</td><td>${escapeHTML(e.perifericos || "—")}</td><td>${availabilityPill(e.disponible)}</td>
+      <td>${statusPill(e.estado)}</td><td>${escapeHTML(e.perifericos || "—")}</td><td>${availabilityPill(e.disponible, e.estado)}</td>
       <td>${escapeHTML(a?.asignadoA || "—")}<span class="subtext">${escapeHTML(a?.area || "")}</span></td><td>${dateText(a?.fecha)}</td>
-      <td><div class="actions"><button class="action-btn" data-action="detail" data-id="${e.id}">Ver</button><button class="action-btn" data-action="edit" data-id="${e.id}">Editar</button>${e.disponible === "si" ? `<button class="action-btn" data-action="assign" data-id="${e.id}">Asignar</button>` : `<button class="action-btn" data-action="receive" data-id="${e.id}">Recibir</button>`}</div></td>
+      <td><div class="actions">${actionBtns}</div></td>
     </tr>`;
   }).join("") : '<tr><td colspan="7" class="empty-cell">No se encontraron equipos con esos filtros.</td></tr>';
 }
@@ -108,7 +134,7 @@ function renderAssignments() {
   const rows = [];
   equipment.forEach(e => (e.asignaciones || []).forEach(a => rows.push({e,a})));
   rows.sort((x,y) => (y.a.fecha || "").localeCompare(x.a.fecha || ""));
-  $("assignmentsTable").innerHTML = rows.length ? rows.map(({e,a}) => `<tr><td><span class="equipment-name">${escapeHTML(equipmentName(e))}</span><span class="subtext">${escapeHTML(e.tipo)}</span></td><td>${escapeHTML(a.asignadoA)}</td><td>${escapeHTML(a.area)}</td><td>${dateText(a.fecha)}</td><td>${statusPill(a.estado)}</td><td>${escapeHTML(a.recibidoPor || "—")}</td></tr>`).join("") : '<tr><td colspan="6" class="empty-cell">No hay asignaciones registradas.</td></tr>';
+  $("assignmentsTable").innerHTML = rows.length ? rows.map(({e,a}) => `<tr><td><span class="equipment-name">${escapeHTML(equipmentName(e))}</span><span class="subtext">${escapeHTML(e.tipo)}</span></td><td>${escapeHTML(a.asignadoA)}</td><td>${escapeHTML(a.area)}</td><td>${dateText(a.fecha)}</td><td>${statusPill(a.estado)}</td><td>${escapeHTML(a.entregadoPor || a.recibidoPor || "—")}</td></tr>`).join("") : '<tr><td colspan="6" class="empty-cell">No hay asignaciones registradas.</td></tr>';
 }
 function renderReturns() {
   const rows = [];
@@ -264,7 +290,9 @@ function editEquipment(id) {
 }
 function prepareAssignment(id) {
   const e = equipment.find(x => x.id === id); if (!e) return;
-  $("assignmentForm").reset(); clearPad("assignmentSignature");
+  $("assignmentForm").reset();
+  clearPad("assignmentSignature");
+  clearPad("assignmentDeliverySignature");
   $("assignmentEquipmentId").value = id; $("assignmentEquipmentLabel").textContent = `${equipmentName(e)} · ${e.tipo}`;
   $("assignedDate").value = today(); $("assignedCondition").value = e.estado || "Bueno"; $("assignedPeripherals").value = e.perifericos || "";
   openDialog("assignmentDialog");
@@ -291,8 +319,21 @@ async function saveEquipment(event) {
 async function saveAssignment(event) {
   event.preventDefault();
   const id = $("assignmentEquipmentId").value; const e = equipment.find(x => x.id === id); if (!e) return;
-  const signature = padHasInk("assignmentSignature") ? $("assignmentSignature").toDataURL("image/png") : "";
-  const a = { asignadoA:$("assignedTo").value.trim(), area:$("assignedArea").value.trim(), fecha:$("assignedDate").value, perifericos:$("assignedPeripherals").value.trim(), estado:$("assignedCondition").value, firma:signature, recibidoPor:$("assignmentReceivedBy").value.trim(), registradoEn:new Date().toISOString() };
+  const signatureReceive = padHasInk("assignmentSignature") ? $("assignmentSignature").toDataURL("image/png") : "";
+  const signatureDelivery = padHasInk("assignmentDeliverySignature") ? $("assignmentDeliverySignature").toDataURL("image/png") : "";
+  const a = {
+    asignadoA: $("assignedTo").value.trim(),
+    area: $("assignedArea").value.trim(),
+    fecha: $("assignedDate").value,
+    perifericos: $("assignedPeripherals").value.trim(),
+    estado: $("assignedCondition").value,
+    firma: signatureReceive,
+    firmaRecibe: signatureReceive,
+    firmaEntrega: signatureDelivery,
+    entregadoPor: $("assignmentReceivedBy").value.trim(),
+    recibidoPor: $("assignmentReceivedBy").value.trim(),
+    registradoEn: new Date().toISOString()
+  };
   try {
     await updateDoc(doc(db,equipmentCollection,id), {disponible:"no", asignaciones:[...(e.asignaciones || []),a], estado:a.estado, updatedAt:serverTimestamp()});
     closeDialog("assignmentDialog"); toast("Asignación guardada correctamente."); await loadEquipment();
@@ -317,11 +358,16 @@ function showDetail(id) {
     <div class="detail-item"><small>Serial</small><strong>${escapeHTML(e.serial || e.referencia || "—")}</strong></div>
     <div class="detail-item"><small>Tipo</small><strong>${escapeHTML(e.tipo)}</strong></div>
     <div class="detail-item"><small>Estado actual</small><strong>${escapeHTML(e.estado)}</strong></div>
-    <div class="detail-item"><small>Disponibilidad</small><strong>${e.disponible === "si" ? "Disponible" : "No disponible"}</strong></div>
+    <div class="detail-item"><small>Disponibilidad</small><strong>${availabilityPill(e.disponible, e.estado)}</strong></div>
     <div class="detail-item"><small>Periféricos actuales</small><strong>${escapeHTML(e.perifericos || "—")}</strong></div>
     <div class="detail-item full"><small>Registrado por</small><strong>${escapeHTML(e.registradoPor || e.asignadoPor || "—")}</strong></div>
   </div>
-  <div class="history-block"><h3>Historial de asignaciones (${aList.length})</h3>${aList.length ? [...aList].reverse().map(a => `<div class="history-entry"><strong>${escapeHTML(a.asignadoA)}</strong> · ${escapeHTML(a.area)}<br>Fecha: ${dateText(a.fecha)} · Estado: ${escapeHTML(a.estado)}<br>Periféricos: ${escapeHTML(a.perifericos || "—")}<br>Recibido por: ${escapeHTML(a.recibidoPor || "—")}${a.firma ? `<br><img class="signature-preview" src="${a.firma}" alt="Firma de asignación">` : ""}</div>`).join("") : '<p class="empty-history">Sin asignaciones.</p>'}</div>
+  <div class="history-block"><h3>Historial de asignaciones (${aList.length})</h3>${aList.length ? [...aList].reverse().map(a => {
+    const deliveryImg = a.firmaEntrega ? `<div class="sig-block"><small>Firma de quien entrega:</small><img class="signature-preview" src="${a.firmaEntrega}" alt="Firma de quien entrega"></div>` : "";
+    const receiveImg = (a.firmaRecibe || a.firma) ? `<div class="sig-block"><small>Firma de quien recibe:</small><img class="signature-preview" src="${a.firmaRecibe || a.firma}" alt="Firma de quien recibe"></div>` : "";
+    const sigs = (deliveryImg || receiveImg) ? `<div class="signatures-preview-row">${deliveryImg}${receiveImg}</div>` : "";
+    return `<div class="history-entry"><strong>${escapeHTML(a.asignadoA)}</strong> · ${escapeHTML(a.area)}<br>Fecha: ${dateText(a.fecha)} · Estado: ${escapeHTML(a.estado)}<br>Periféricos: ${escapeHTML(a.perifericos || "—")}<br>Entregado por: ${escapeHTML(a.entregadoPor || a.recibidoPor || "—")}${sigs}</div>`;
+  }).join("") : '<p class="empty-history">Sin asignaciones.</p>'}</div>
   <div class="history-block"><h3>Historial de recepciones (${rList.length})</h3>${rList.length ? [...rList].reverse().map(r => `<div class="history-entry"><strong>Recibido de: ${escapeHTML(r.recibidoDe)}</strong> · ${escapeHTML(r.area)}<br>Fecha: ${dateText(r.fecha)} · Estado: ${escapeHTML(r.estado)}<br>Periféricos: ${escapeHTML(r.perifericos || "—")}${r.firma ? `<br><img class="signature-preview" src="${r.firma}" alt="Firma de recepción">` : ""}</div>`).join("") : '<p class="empty-history">Sin recepciones.</p>'}</div>`;
   openDialog("historyDialog");
 }
@@ -337,6 +383,103 @@ function setupSignaturePad(id) {
   canvas.addEventListener("touchstart",start,{passive:false});canvas.addEventListener("touchmove",move,{passive:false});canvas.addEventListener("touchend",end);
   clearPad(id);
 }
+async function decommissionEquipment(id) {
+  const e = equipment.find(x => x.id === id);
+  if (!e) return;
+  const name = equipmentName(e);
+  const a = currentAssignment(e);
+  const msg = a
+    ? `El equipo "${name}" está actualmente asignado a ${a.asignadoA}.\n\n¿Estás seguro de darle de baja? El equipo ya no podrá volver a asignarse pero su registro e historial se conservarán.`
+    : `¿Estás seguro de dar de baja el equipo "${name}"?\n\nEl equipo ya no podrá ser asignado pero su registro e historial se conservarán.`;
+
+  if (!confirm(msg)) return;
+
+  try {
+    await updateDoc(doc(db, equipmentCollection, id), {
+      estado: "De Baja",
+      disponible: "no",
+      updatedAt: serverTimestamp()
+    });
+    toast(`El equipo "${name}" fue dado de baja correctamente.`);
+    await loadEquipment();
+  } catch (err) {
+    console.error(err);
+    toast("No se pudo dar de baja el equipo. Verifica Firebase.");
+  }
+}
+
+function exportToExcel() {
+  const term = $("searchInput").value.trim().toLowerCase();
+  const avail = $("availabilityFilter").value;
+  const status = $("statusFilter").value.trim().toLowerCase();
+
+  const itemsToExport = equipment.filter(e => {
+    const a = currentAssignment(e);
+    const text = [e.marca, e.serial, e.referencia, e.tipo, e.perifericos, e.registradoPor || e.asignadoPor, a?.asignadoA, a?.area].filter(Boolean).join(" ").toLowerCase();
+
+    let matchesAvail = true;
+    if (avail === "baja") matchesAvail = (e.estado || "").toLowerCase() === "de baja";
+    else if (avail === "si") matchesAvail = e.disponible === "si" && (e.estado || "").toLowerCase() !== "de baja";
+    else if (avail === "no") matchesAvail = e.disponible === "no" && (e.estado || "").toLowerCase() !== "de baja";
+
+    const matchesStatus = !status || (e.estado || "").toLowerCase() === status;
+    const matchesTerm = !term || text.includes(term);
+
+    return matchesTerm && matchesAvail && matchesStatus;
+  });
+
+  if (!itemsToExport.length) {
+    toast("No hay equipos para exportar con los filtros actuales.");
+    return;
+  }
+
+  const headers = [
+    "Marca",
+    "Serial",
+    "Tipo de equipo",
+    "Estado",
+    "Disponibilidad",
+    "Periféricos",
+    "Asignado a",
+    "Área asignada",
+    "Fecha de asignación",
+    "Registrado por"
+  ];
+
+  const escapeCSV = val => `"${String(val ?? "").replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`;
+
+  const rows = itemsToExport.map(e => {
+    const a = currentAssignment(e);
+    const isBaja = (e.estado || "").toLowerCase() === "de baja";
+    const dispText = isBaja ? "De baja" : (e.disponible === "si" ? "Disponible" : "No disponible");
+    return [
+      escapeCSV(e.marca),
+      escapeCSV(e.serial || e.referencia || ""),
+      escapeCSV(e.tipo),
+      escapeCSV(e.estado),
+      escapeCSV(dispText),
+      escapeCSV(e.perifericos || ""),
+      escapeCSV(a?.asignadoA || ""),
+      escapeCSV(a?.area || ""),
+      escapeCSV(a?.fecha || ""),
+      escapeCSV(e.registradoPor || e.asignadoPor || "")
+    ].join(";");
+  });
+
+  const csvContent = "\uFEFFsep=;\r\n" + headers.map(escapeCSV).join(";") + "\r\n" + rows.join("\r\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const dateStr = today();
+  link.setAttribute("href", url);
+  link.setAttribute("download", `Inventario_Supercarnes_JH_${dateStr}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  toast(`Exportados ${itemsToExport.length} equipo(s) a Excel.`);
+}
+
 function navigate(view) {
   document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
   document.querySelectorAll(".nav-item").forEach(b => b.classList.toggle("active",b.dataset.view===view));
@@ -359,9 +502,11 @@ document.addEventListener("click",event=>{
   const {action,id}=b.dataset;
   if(action==="detail")showDetail(id); if(action==="edit")editEquipment(id);
   if(action==="assign")prepareAssignment(id); if(action==="receive")prepareReturn(id);
+  if(action==="decommission")decommissionEquipment(id);
 });
 $("mobileMenu").addEventListener("click",()=>$("sidebar").classList.toggle("open"));
-["assignmentSignature","returnSignature"].forEach(setupSignaturePad);
+$("exportExcelBtn")?.addEventListener("click",exportToExcel);
+["assignmentSignature","assignmentDeliverySignature","returnSignature"].forEach(setupSignaturePad);
 setupPeripheralsSelect();
 
 const configReady = firebaseConfig.apiKey && !firebaseConfig.apiKey.startsWith("PEGA_") && firebaseConfig.projectId && !firebaseConfig.projectId.startsWith("TU-");

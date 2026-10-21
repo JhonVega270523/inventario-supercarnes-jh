@@ -22,3 +22,11 @@
 .multiselect-option{display:flex !important;flex-direction:row !important;align-items:center !important;gap:9px !important;padding:7px 8px;border-radius:6px;cursor:pointer;font-size:13px !important;font-weight:500 !important;color:#26282d !important;transition:background .12s;margin:0 !important;user-select:none}
 .multiselect-option:hover{background:#f7f8fa}
 .multiselect-option input[type="checkbox"]{width:16px !important;height:16px !important;cursor:pointer;accent-color:var(--red);margin:0 !important;padding:0 !important;flex-shrink:0}
+
+/* Acciones adicionales y firmas */
+.heading-actions{display:flex;gap:10px;align-items:center}
+.btn-baja{color:var(--red)!important}
+.btn-baja:hover{border-color:var(--red)!important;background:var(--red-soft)!important}
+.signatures-preview-row{display:flex;gap:15px;flex-wrap:wrap;margin-top:8px}
+.sig-block{flex:1;min-width:180px}
+.sig-block small{display:block;font-size:10px;font-weight:700;color:var(--muted);margin-bottom:4px}
