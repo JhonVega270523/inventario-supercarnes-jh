@@ -446,38 +446,76 @@ function exportToExcel() {
     "Registrado por"
   ];
 
-  const escapeCSV = val => `"${String(val ?? "").replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`;
+  const fileName = `Inventario_Supercarnes_JH_${today()}.xlsx`;
 
-  const rows = itemsToExport.map(e => {
-    const a = currentAssignment(e);
-    const isBaja = (e.estado || "").toLowerCase() === "de baja";
-    const dispText = isBaja ? "De baja" : (e.disponible === "si" ? "Disponible" : "No disponible");
-    return [
-      escapeCSV(e.marca),
-      escapeCSV(e.serial || e.referencia || ""),
-      escapeCSV(e.tipo),
-      escapeCSV(e.estado),
-      escapeCSV(dispText),
-      escapeCSV(e.perifericos || ""),
-      escapeCSV(a?.asignadoA || ""),
-      escapeCSV(a?.area || ""),
-      escapeCSV(a?.fecha || ""),
-      escapeCSV(e.registradoPor || e.asignadoPor || "")
-    ].join(";");
-  });
+  if (typeof XLSX !== "undefined") {
+    const rows = itemsToExport.map(e => {
+      const a = currentAssignment(e);
+      const isBaja = (e.estado || "").toLowerCase() === "de baja";
+      const dispText = isBaja ? "De baja" : (e.disponible === "si" ? "Disponible" : "No disponible");
+      return [
+        e.marca || "",
+        e.serial || e.referencia || "",
+        e.tipo || "",
+        e.estado || "",
+        dispText,
+        e.perifericos || "",
+        a?.asignadoA || "",
+        a?.area || "",
+        a?.fecha ? dateText(a.fecha) : "",
+        e.registradoPor || e.asignadoPor || ""
+      ];
+    });
 
-  const csvContent = "\uFEFFsep=;\r\n" + headers.map(escapeCSV).join(";") + "\r\n" + rows.join("\r\n");
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  const dateStr = today();
-  link.setAttribute("href", url);
-  link.setAttribute("download", `Inventario_Supercarnes_JH_${dateStr}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-  toast(`Exportados ${itemsToExport.length} equipo(s) a Excel.`);
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    ws["!cols"] = [
+      { wch: 18 },
+      { wch: 22 },
+      { wch: 22 },
+      { wch: 18 },
+      { wch: 16 },
+      { wch: 30 },
+      { wch: 26 },
+      { wch: 20 },
+      { wch: 18 },
+      { wch: 22 }
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Inventario");
+    XLSX.writeFile(wb, fileName);
+  } else {
+    const escapeCSV = val => `"${String(val ?? "").replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`;
+    const rows = itemsToExport.map(e => {
+      const a = currentAssignment(e);
+      const isBaja = (e.estado || "").toLowerCase() === "de baja";
+      const dispText = isBaja ? "De baja" : (e.disponible === "si" ? "Disponible" : "No disponible");
+      return [
+        escapeCSV(e.marca),
+        escapeCSV(e.serial || e.referencia || ""),
+        escapeCSV(e.tipo),
+        escapeCSV(e.estado),
+        escapeCSV(dispText),
+        escapeCSV(e.perifericos || ""),
+        escapeCSV(a?.asignadoA || ""),
+        escapeCSV(a?.area || ""),
+        escapeCSV(a?.fecha || ""),
+        escapeCSV(e.registradoPor || e.asignadoPor || "")
+      ].join(";");
+    });
+    const csvContent = "\uFEFFsep=;\r\n" + headers.map(escapeCSV).join(";") + "\r\n" + rows.join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Inventario_Supercarnes_JH_${today()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  toast(`Exportados ${itemsToExport.length} equipo(s) a ${fileName}`);
 }
 
 function navigate(view) {
