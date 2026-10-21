@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /equipos/{equipoId} {
+      // DEMO solamente: permite lectura/escritura a cualquier visitante.
+      // No publiques estas reglas en producción.
+      allow read, write: if true;
+    }
+  }
+}

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#b5121b">
+  <title>Inventario de equipos | Supercarnes JH</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark">JH</div>
+        <div><strong>SUPERCARNES</strong><span>GESTIÓN DE EQUIPOS</span></div>
+      </div>
+      <nav>
+        <button class="nav-item active" data-view="dashboard"><span>▦</span> Panel general</button>
+        <button class="nav-item" data-view="inventory"><span>▤</span> Inventario</button>
+        <button class="nav-item" data-view="assignments"><span>↗</span> Asignaciones</button>
+        <button class="nav-item" data-view="returns"><span>↙</span> Recepciones</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <span class="connection-dot"></span><span id="connectionText">Firebase pendiente de configurar</span>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <button class="mobile-menu" id="mobileMenu" aria-label="Abrir menú">☰</button>
+        <div><p class="eyebrow">CONTROL DE ACTIVOS</p><h1 id="pageTitle">Panel general</h1></div>
+        <button class="btn btn-primary" id="newEquipmentBtn">＋ Registrar equipo</button>
+      </header>
+
+      <section id="setupNotice" class="notice">
+        <strong>Antes de comenzar:</strong> configura las credenciales de tu proyecto Firebase en <code>firebase-config.js</code> y habilita Cloud Firestore. Consulta el archivo README incluido.
+      </section>
+
+      <section class="view active" id="dashboardView">
+        <div class="welcome"><div><p class="eyebrow light">SUPERCARNES JH</p><h2>Control de inventario tecnológico</h2><p>Consulta los equipos, su estado y quién tiene cada activo asignado.</p></div><div class="welcome-icon">▣</div></div>
+        <div class="stats-grid">
+          <article class="stat-card"><div class="stat-icon red">▤</div><div><span>Total de equipos</span><strong id="statTotal">0</strong><small>Registrados en el inventario</small></div></article>
+          <article class="stat-card"><div class="stat-icon green">✓</div><div><span>Disponibles</span><strong id="statAvailable">0</strong><small>Listos para asignar</small></div></article>
+          <article class="stat-card"><div class="stat-icon amber">↗</div><div><span>Asignados</span><strong id="statAssigned">0</strong><small>Actualmente en uso</small></div></article>
+          <article class="stat-card"><div class="stat-icon blue">⚙</div><div><span>En mantenimiento / otros</span><strong id="statOther">0</strong><small>Revisar estado del equipo</small></div></article>
+        </div>
+        <div class="section-heading"><div><h3>Equipos recientes</h3><p>Últimos equipos registrados o actualizados</p></div><button class="btn btn-outline" data-goto="inventory">Ver inventario →</button></div>
+        <div class="table-card"><div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Tipo</th><th>Estado</th><th>Disponibilidad</th><th>Asignado a</th><th></th></tr></thead><tbody id="recentTable"><tr><td colspan="6" class="empty-cell">Conecta Firebase para cargar los equipos.</td></tr></tbody></table></div></div>
+      </section>
+
+      <section class="view" id="inventoryView">
+        <div class="section-heading"><div><h3>Inventario de equipos</h3><p>Registro maestro de los activos tecnológicos</p></div><button class="btn btn-primary" id="newEquipmentBtn2">＋ Nuevo equipo</button></div>
+        <div class="toolbar"><div class="search-box"><span>⌕</span><input id="searchInput" type="search" placeholder="Buscar por marca, tipo o responsable..."></div><select id="availabilityFilter"><option value="">Todas las disponibilidades</option><option value="si">Disponible</option><option value="no">No disponible</option></select><select id="statusFilter"><option value="">Todos los estados</option><option>Bueno</option><option>Regular</option><option>En mantenimiento</option><option>Dañado</option></select></div>
+        <div class="table-card"><div class="table-wrap"><table><thead><tr><th>Marca / Tipo</th><th>Estado</th><th>Periféricos</th><th>Disponible</th><th>Asignado a</th><th>Fecha asignación</th><th>Acciones</th></tr></thead><tbody id="inventoryTable"><tr><td colspan="7" class="empty-cell">Cargando inventario...</td></tr></tbody></table></div></div>
+        <p class="table-footnote" id="inventoryCount">0 equipos</p>
+      </section>
+
+      <section class="view" id="assignmentsView">
+        <div class="section-heading"><div><h3>Historial de asignaciones</h3><p>Entrega de equipos y responsables</p></div></div>
+        <div class="table-card"><div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Asignado a</th><th>Área</th><th>Fecha</th><th>Estado al asignar</th><th>Recibido por</th></tr></thead><tbody id="assignmentsTable"><tr><td colspan="6" class="empty-cell">No hay asignaciones registradas.</td></tr></tbody></table></div></div>
+      </section>
+
+      <section class="view" id="returnsView">
+        <div class="section-heading"><div><h3>Historial de recepciones</h3><p>Registro de devolución y condición de los equipos</p></div></div>
+        <div class="table-card"><div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Recibido de</th><th>Área</th><th>Fecha</th><th>Estado recibido</th><th>Firma</th></tr></thead><tbody id="returnsTable"><tr><td colspan="6" class="empty-cell">No hay recepciones registradas.</td></tr></tbody></table></div></div>
+      </section>
+      <footer>Supercarnes JH · Sistema interno de inventario de equipos</footer>
+    </main>
+  </div>
+
+  <dialog id="equipmentDialog" class="modal">
+    <form id="equipmentForm" class="modal-form">
+      <div class="modal-header"><div><p class="eyebrow">INVENTARIO MAESTRO</p><h2 id="equipmentDialogTitle">Registrar equipo</h2></div><button type="button" class="icon-btn" data-close="equipmentDialog">✕</button></div>
+      <input type="hidden" id="equipmentId">
+      <div class="form-grid">
+        <label>Marca <input id="brand" required maxlength="80" placeholder="Ej. Lenovo"></label>
+        <label>Tipo de equipo <input id="type" required maxlength="80" placeholder="Ej. Portátil"></label>
+        <label>Estado del equipo <select id="equipmentStatus" required><option value="Bueno">Bueno</option><option value="Regular">Regular</option><option value="En mantenimiento">En mantenimiento</option><option value="Dañado">Dañado</option></select></label>
+        <label>Disponible <select id="available" required><option value="si">Sí</option><option value="no">No</option></select></label>
+        <label class="full">Periféricos <textarea id="peripherals" rows="2" placeholder="Mouse, teclado, cargador, monitor..."></textarea></label>
+        <label class="full">Asignado por <input id="assignedBy" required placeholder="Nombre de quien entrega / administra"></label>
+      </div>
+      <div class="modal-actions"><button type="button" class="btn btn-outline" data-close="equipmentDialog">Cancelar</button><button class="btn btn-primary" type="submit">Guardar equipo</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="assignmentDialog" class="modal">
+    <form id="assignmentForm" class="modal-form">
+      <div class="modal-header"><div><p class="eyebrow">ENTREGA DE ACTIVO</p><h2>Asignar equipo</h2><p class="modal-subtitle" id="assignmentEquipmentLabel"></p></div><button type="button" class="icon-btn" data-close="assignmentDialog">✕</button></div>
+      <input type="hidden" id="assignmentEquipmentId">
+      <div class="form-grid">
+        <label>Asignado a <input id="assignedTo" required placeholder="Nombre completo"></label>
+        <label>Área asignada <input id="assignedArea" required placeholder="Ej. Contabilidad"></label>
+        <label>Fecha de asignación <input id="assignedDate" type="date" required></label>
+        <label>Estado al asignar <select id="assignedCondition" required><option>Bueno</option><option>Regular</option><option>En mantenimiento</option><option>Dañado</option></select></label>
+        <label class="full">Periféricos entregados <textarea id="assignedPeripherals" rows="2" placeholder="Accesorios que se entregan"></textarea></label>
+        <label>Recibido por <input id="assignmentReceivedBy" required placeholder="Nombre de quien entrega/autoriza"></label>
+        <div class="full signature-field"><span class="field-label">Firma de quien recibe / acepta</span><canvas id="assignmentSignature" class="signature-pad" width="700" height="160"></canvas><button type="button" class="clear-signature" data-clear="assignmentSignature">Limpiar firma</button></div>
+      </div>
+      <div class="modal-actions"><button type="button" class="btn btn-outline" data-close="assignmentDialog">Cancelar</button><button class="btn btn-primary" type="submit">Guardar asignación</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="returnDialog" class="modal">
+    <form id="returnForm" class="modal-form">
+      <div class="modal-header"><div><p class="eyebrow">DEVOLUCIÓN DE ACTIVO</p><h2>Recibir equipo</h2><p class="modal-subtitle" id="returnEquipmentLabel"></p></div><button type="button" class="icon-btn" data-close="returnDialog">✕</button></div>
+      <input type="hidden" id="returnEquipmentId">
+      <div class="form-grid">
+        <label>Recibido de <input id="receivedFrom" required placeholder="Persona que devuelve el equipo"></label>
+        <label>Área recibida <input id="receivedArea" required placeholder="Área de procedencia"></label>
+        <label>Fecha de recepción <input id="receivedDate" type="date" required></label>
+        <label>Estado recibido <select id="receivedCondition" required><option>Bueno</option><option>Regular</option><option>En mantenimiento</option><option>Dañado</option></select></label>
+        <label class="full">Periféricos recibidos <textarea id="receivedPeripherals" rows="2" placeholder="Accesorios que se reciben y observaciones"></textarea></label>
+        <div class="full signature-field"><span class="field-label">Firma de quien recibe el equipo</span><canvas id="returnSignature" class="signature-pad" width="700" height="160"></canvas><button type="button" class="clear-signature" data-clear="returnSignature">Limpiar firma</button></div>
+      </div>
+      <div class="modal-actions"><button type="button" class="btn btn-outline" data-close="returnDialog">Cancelar</button><button class="btn btn-primary" type="submit">Guardar recepción</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="historyDialog" class="modal"><div class="modal-form"><div class="modal-header"><div><p class="eyebrow">DETALLE DEL ACTIVO</p><h2 id="historyTitle">Detalle del equipo</h2></div><button type="button" class="icon-btn" data-close="historyDialog">✕</button></div><div id="historyContent"></div><div class="modal-actions"><button class="btn btn-outline" data-close="historyDialog">Cerrar</button></div></div></dialog>
+  <div id="toast" class="toast" role="status"></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
