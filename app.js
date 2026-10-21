@@ -22,7 +22,8 @@ function dateText(value) {
   return Number.isNaN(d.getTime()) ? escapeHTML(value) : d.toLocaleDateString("es-CO");
 }
 function equipmentName(e) {
-  return [e?.marca, e?.referencia].filter(Boolean).join(" ");
+  const s = e?.serial || e?.referencia;
+  return [e?.marca, s].filter(Boolean).join(" ");
 }
 function statusPill(status = "") {
   const norm = String(status).toLowerCase();
@@ -89,7 +90,7 @@ function renderInventory() {
   const status = $("statusFilter").value.trim().toLowerCase();
   const filtered = equipment.filter(e => {
     const a = currentAssignment(e);
-    const text = [e.marca,e.referencia,e.tipo,e.perifericos,e.registradoPor || e.asignadoPor,a?.asignadoA,a?.area].filter(Boolean).join(" ").toLowerCase();
+    const text = [e.marca,e.serial,e.referencia,e.tipo,e.perifericos,e.registradoPor || e.asignadoPor,a?.asignadoA,a?.area].filter(Boolean).join(" ").toLowerCase();
     return (!term || text.includes(term)) && (!avail || e.disponible === avail) && (!status || (e.estado || "").toLowerCase() === status);
   });
   $("inventoryCount").textContent = `${filtered.length} equipo${filtered.length === 1 ? "" : "s"}${filtered.length !== equipment.length ? ` de ${equipment.length}` : ""}`;
@@ -196,7 +197,7 @@ function resetEquipmentForm() {
   $("equipmentId").value = "";
   $("equipmentDialogTitle").textContent = "Registrar equipo";
   $("brand").value = "";
-  $("reference").value = "";
+  $("serial").value = "";
   $("available").value = "si";
   $("equipmentStatus").value = "Bueno";
   $("type").value = "";
@@ -209,7 +210,7 @@ function editEquipment(id) {
   resetEquipmentForm();
   $("equipmentId").value = e.id;
   $("brand").value = e.marca || "";
-  $("reference").value = e.referencia || "";
+  $("serial").value = e.serial || e.referencia || "";
 
   if (e.tipo) {
     const normalizedTarget = e.tipo.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -280,7 +281,7 @@ function prepareReturn(id) {
 async function saveEquipment(event) {
   event.preventDefault();
   const id = $("equipmentId").value;
-  const data = { marca:$("brand").value.trim(), referencia:$("reference").value.trim(), tipo:$("type").value.trim(), estado:$("equipmentStatus").value, disponible:$("available").value, perifericos:$("peripherals").value.trim(), asignadoPor:$("assignedBy").value.trim(), registradoPor:$("assignedBy").value.trim(), updatedAt:serverTimestamp() };
+  const data = { marca:$("brand").value.trim(), serial:$("serial").value.trim(), referencia:$("serial").value.trim(), tipo:$("type").value.trim(), estado:$("equipmentStatus").value, disponible:$("available").value, perifericos:$("peripherals").value.trim(), asignadoPor:$("assignedBy").value.trim(), registradoPor:$("assignedBy").value.trim(), updatedAt:serverTimestamp() };
   try {
     if (id) await updateDoc(doc(db,equipmentCollection,id), data);
     else await addDoc(collection(db,equipmentCollection), {...data, asignaciones:[], recepciones:[], createdAt:serverTimestamp()});
@@ -313,7 +314,7 @@ function showDetail(id) {
   const aList = e.asignaciones || [], rList = e.recepciones || [];
   $("historyContent").innerHTML = `<div class="detail-grid">
     <div class="detail-item"><small>Marca</small><strong>${escapeHTML(e.marca)}</strong></div>
-    <div class="detail-item"><small>Referencia</small><strong>${escapeHTML(e.referencia || "—")}</strong></div>
+    <div class="detail-item"><small>Serial</small><strong>${escapeHTML(e.serial || e.referencia || "—")}</strong></div>
     <div class="detail-item"><small>Tipo</small><strong>${escapeHTML(e.tipo)}</strong></div>
     <div class="detail-item"><small>Estado actual</small><strong>${escapeHTML(e.estado)}</strong></div>
     <div class="detail-item"><small>Disponibilidad</small><strong>${e.disponible === "si" ? "Disponible" : "No disponible"}</strong></div>
