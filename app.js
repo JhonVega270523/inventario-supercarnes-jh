@@ -229,7 +229,6 @@ function resetEquipmentForm() {
   $("type").value = "";
   setPeripheralsValue("");
   $("assignedBy").value = "";
-  if ($("equipmentNotes")) $("equipmentNotes").value = "";
 }
 
 function editEquipment(id) {
@@ -286,8 +285,6 @@ function editEquipment(id) {
     $("assignedBy").value = "";
   }
 
-  if ($("equipmentNotes")) $("equipmentNotes").value = e.observaciones || "";
-
   $("equipmentDialogTitle").textContent = "Editar equipo";
   openDialog("equipmentDialog");
 }
@@ -312,19 +309,7 @@ function prepareReturn(id) {
 async function saveEquipment(event) {
   event.preventDefault();
   const id = $("equipmentId").value;
-  const data = {
-    marca: $("brand").value.trim(),
-    serial: $("serial").value.trim(),
-    referencia: $("serial").value.trim(),
-    tipo: $("type").value.trim(),
-    estado: $("equipmentStatus").value,
-    disponible: $("available").value,
-    perifericos: $("peripherals").value.trim(),
-    asignadoPor: $("assignedBy").value.trim(),
-    registradoPor: $("assignedBy").value.trim(),
-    observaciones: $("equipmentNotes") ? $("equipmentNotes").value.trim() : "",
-    updatedAt: serverTimestamp()
-  };
+  const data = { marca:$("brand").value.trim(), serial:$("serial").value.trim(), referencia:$("serial").value.trim(), tipo:$("type").value.trim(), estado:$("equipmentStatus").value, disponible:$("available").value, perifericos:$("peripherals").value.trim(), asignadoPor:$("assignedBy").value.trim(), registradoPor:$("assignedBy").value.trim(), updatedAt:serverTimestamp() };
   try {
     if (id) await updateDoc(doc(db,equipmentCollection,id), data);
     else await addDoc(collection(db,equipmentCollection), {...data, asignaciones:[], recepciones:[], createdAt:serverTimestamp()});
@@ -376,22 +361,6 @@ function showDetail(id) {
     <div class="detail-item"><small>Disponibilidad</small><strong>${availabilityPill(e.disponible, e.estado)}</strong></div>
     <div class="detail-item"><small>Periféricos actuales</small><strong>${escapeHTML(e.perifericos || "—")}</strong></div>
     <div class="detail-item full"><small>Registrado por</small><strong>${escapeHTML(e.registradoPor || e.asignadoPor || "—")}</strong></div>
-    <div class="detail-item full detail-notes">
-      <div class="detail-notes-header">
-        <small>Observaciones</small>
-        <button type="button" class="link-btn" id="toggleEditNotesBtn">✏ Editar observación</button>
-      </div>
-      <div id="notesDisplayArea">
-        <p class="notes-content">${escapeHTML(e.observaciones || "Sin observaciones registradas.")}</p>
-      </div>
-      <div id="notesEditArea" style="display:none;margin-top:8px;">
-        <textarea id="detailNotesInput" class="notes-textarea" rows="2" placeholder="Escribe observaciones sobre el equipo...">${escapeHTML(e.observaciones || "")}</textarea>
-        <div style="display:flex;gap:8px;margin-top:6px;justify-content:flex-end;">
-          <button type="button" class="btn btn-outline btn-sm" id="cancelNotesBtn">Cancelar</button>
-          <button type="button" class="btn btn-primary btn-sm" id="saveNotesBtn">Guardar</button>
-        </div>
-      </div>
-    </div>
   </div>
   <div class="history-block"><h3>Historial de asignaciones (${aList.length})</h3>${aList.length ? [...aList].reverse().map(a => {
     const deliveryImg = a.firmaEntrega ? `<div class="sig-block"><small>Firma de quien entrega:</small><img class="signature-preview" src="${a.firmaEntrega}" alt="Firma de quien entrega"></div>` : "";
@@ -400,51 +369,6 @@ function showDetail(id) {
     return `<div class="history-entry"><strong>${escapeHTML(a.asignadoA)}</strong> · ${escapeHTML(a.area)}<br>Fecha: ${dateText(a.fecha)} · Estado: ${escapeHTML(a.estado)}<br>Periféricos: ${escapeHTML(a.perifericos || "—")}<br>Entregado por: ${escapeHTML(a.entregadoPor || a.recibidoPor || "—")}${sigs}</div>`;
   }).join("") : '<p class="empty-history">Sin asignaciones.</p>'}</div>
   <div class="history-block"><h3>Historial de recepciones (${rList.length})</h3>${rList.length ? [...rList].reverse().map(r => `<div class="history-entry"><strong>Recibido de: ${escapeHTML(r.recibidoDe)}</strong> · ${escapeHTML(r.area)}<br>Fecha: ${dateText(r.fecha)} · Estado: ${escapeHTML(r.estado)}<br>Periféricos: ${escapeHTML(r.perifericos || "—")}${r.firma ? `<br><img class="signature-preview" src="${r.firma}" alt="Firma de recepción">` : ""}</div>`).join("") : '<p class="empty-history">Sin recepciones.</p>'}</div>`;
-
-  const toggleBtn = $("toggleEditNotesBtn");
-  const saveBtn = $("saveNotesBtn");
-  const cancelBtn = $("cancelNotesBtn");
-  const displayArea = $("notesDisplayArea");
-  const editArea = $("notesEditArea");
-
-  if (toggleBtn && editArea && displayArea) {
-    toggleBtn.addEventListener("click", () => {
-      const isEditing = editArea.style.display !== "none";
-      editArea.style.display = isEditing ? "none" : "block";
-      displayArea.style.display = isEditing ? "block" : "none";
-      toggleBtn.textContent = isEditing ? "✏ Editar observación" : "✕ Cancelar";
-      if (!isEditing) $("detailNotesInput").focus();
-    });
-  }
-  if (cancelBtn) {
-    cancelBtn.addEventListener("click", () => {
-      editArea.style.display = "none";
-      displayArea.style.display = "block";
-      if (toggleBtn) toggleBtn.textContent = "✏ Editar observación";
-    });
-  }
-  if (saveBtn) {
-    saveBtn.addEventListener("click", async () => {
-      const newNotes = $("detailNotesInput").value.trim();
-      saveBtn.disabled = true;
-      saveBtn.textContent = "Guardando…";
-      try {
-        await updateDoc(doc(db, equipmentCollection, e.id), {
-          observaciones: newNotes,
-          updatedAt: serverTimestamp()
-        });
-        e.observaciones = newNotes;
-        toast("Observación guardada correctamente.");
-        showDetail(e.id);
-        await loadEquipment();
-      } catch (err) {
-        console.error(err);
-        toast("No se pudo guardar la observación.");
-        saveBtn.disabled = false;
-        saveBtn.textContent = "Guardar";
-      }
-    });
-  }
   openDialog("historyDialog");
 }
 function clearPad(id) { const c = $(id); const ctx = c.getContext("2d"); ctx.clearRect(0,0,c.width,c.height); ctx.strokeStyle="#222";ctx.lineWidth=2.2;ctx.lineCap="round"; }

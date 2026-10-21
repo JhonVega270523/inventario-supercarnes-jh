@@ -30,15 +30,3 @@
 .signatures-preview-row{display:flex;gap:15px;flex-wrap:wrap;margin-top:8px}
 .sig-block{flex:1;min-width:180px}
 .sig-block small{display:block;font-size:10px;font-weight:700;color:var(--muted);margin-bottom:4px}
-
-/* Logo y Observaciones */
-.brand-logo{width:46px;height:46px;object-fit:contain;border-radius:10px;background:#fff;padding:2px;flex-shrink:0;box-shadow:0 2px 6px rgba(0,0,0,0.18)}
-.btn-sm{padding:6px 12px!important;font-size:11px!important;border-radius:6px!important}
-.link-btn{background:none;border:none;color:var(--red);font-size:11px;font-weight:700;cursor:pointer;padding:0}
-.link-btn:hover{text-decoration:underline}
-.detail-notes{background:#fff!important;border:1px solid #dfe1e5}
-.detail-notes-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
-.detail-notes-header small{margin-bottom:0!important}
-.notes-content{margin:0;font-size:12px;color:#242529;white-space:pre-wrap;line-height:1.5}
-.notes-textarea{width:100%;border:1px solid #dfe1e5;border-radius:6px;padding:8px 10px;font-size:12px;font-family:inherit;box-sizing:border-box;resize:vertical;outline:none;background:#fafafa}
-.notes-textarea:focus{border-color:var(--red);background:#fff;box-shadow:0 0 0 2px rgba(181,18,27,.08)}
