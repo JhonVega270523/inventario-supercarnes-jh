@@ -77,11 +77,46 @@
       <input type="hidden" id="equipmentId">
       <div class="form-grid">
         <label>Marca <input id="brand" required maxlength="80" placeholder="Ej. Lenovo"></label>
-        <label>Tipo de equipo <input id="type" required maxlength="80" placeholder="Ej. Portátil"></label>
+        <label>Tipo de equipo
+          <select id="type" required>
+            <option value="" disabled selected>Seleccione tipo...</option>
+            <option value="Portatil">Portatil</option>
+            <option value="Torre">Torre</option>
+            <option value="Celular">Celular</option>
+            <option value="Tablet">Tablet</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </label>
         <label>Estado del equipo <select id="equipmentStatus" required><option value="Bueno">Bueno</option><option value="Regular">Regular</option><option value="En mantenimiento">En mantenimiento</option><option value="Dañado">Dañado</option></select></label>
         <label>Disponible <select id="available" required><option value="si">Sí</option><option value="no">No</option></select></label>
-        <label class="full">Periféricos <textarea id="peripherals" rows="2" placeholder="Mouse, teclado, cargador, monitor..."></textarea></label>
-        <label class="full">Asignado por <input id="assignedBy" required placeholder="Nombre de quien entrega / administra"></label>
+        <div class="full multiselect-field">
+          <span class="field-label">Periféricos</span>
+          <div class="custom-multiselect" id="peripheralsSelectContainer">
+            <div class="multiselect-trigger" id="peripheralsTrigger" tabindex="0" role="combobox" aria-expanded="false" aria-haspopup="listbox">
+              <div class="multiselect-value" id="peripheralsDisplay">
+                <span class="multiselect-placeholder">Seleccionar periféricos...</span>
+              </div>
+              <span class="multiselect-arrow">▾</span>
+            </div>
+            <div class="multiselect-dropdown" id="peripheralsDropdown">
+              <div class="multiselect-options-header">
+                <span>Selecciona los periféricos:</span>
+                <button type="button" class="multiselect-clear-btn" id="clearPeripheralsBtn">Limpiar</button>
+              </div>
+              <label class="multiselect-option"><input type="checkbox" name="peripheralOption" value="Mouse"><span>Mouse</span></label>
+              <label class="multiselect-option"><input type="checkbox" name="peripheralOption" value="Teclado"><span>Teclado</span></label>
+              <label class="multiselect-option"><input type="checkbox" name="peripheralOption" value="Cargador"><span>Cargador</span></label>
+              <label class="multiselect-option"><input type="checkbox" name="peripheralOption" value="Monitor"><span>Monitor</span></label>
+              <label class="multiselect-option"><input type="checkbox" name="peripheralOption" value="Impresora"><span>Impresora</span></label>
+              <label class="multiselect-option"><input type="checkbox" name="peripheralOption" value="MousePad"><span>MousePad</span></label>
+              <label class="multiselect-option"><input type="checkbox" name="peripheralOption" value="PDA"><span>PDA</span></label>
+              <label class="multiselect-option"><input type="checkbox" name="peripheralOption" value="Base Portatil"><span>Base Portatil</span></label>
+              <label class="multiselect-option"><input type="checkbox" name="peripheralOption" value="Otro"><span>Otro</span></label>
+            </div>
+            <input type="hidden" id="peripherals" name="perifericos">
+          </div>
+        </div>
+        <label class="full">Registrado por <input id="assignedBy" required placeholder="Nombre de quien registra el equipo"></label>
       </div>
       <div class="modal-actions"><button type="button" class="btn btn-outline" data-close="equipmentDialog">Cancelar</button><button class="btn btn-primary" type="submit">Guardar equipo</button></div>
     </form>

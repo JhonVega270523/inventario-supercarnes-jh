@@ -81,7 +81,7 @@ function renderInventory() {
   const status = $("statusFilter").value;
   const filtered = equipment.filter(e => {
     const a = currentAssignment(e);
-    const text = [e.marca,e.tipo,e.perifericos,e.asignadoPor,a?.asignadoA,a?.area].join(" ").toLowerCase();
+    const text = [e.marca,e.tipo,e.perifericos,e.registradoPor || e.asignadoPor,a?.asignadoA,a?.area].join(" ").toLowerCase();
     return (!term || text.includes(term)) && (!avail || e.disponible === avail) && (!status || e.estado === status);
   });
   $("inventoryCount").textContent = `${filtered.length} equipo${filtered.length === 1 ? "" : "s"}${filtered.length !== equipment.length ? ` de ${equipment.length}` : ""}`;
@@ -107,14 +107,121 @@ function renderReturns() {
   rows.sort((x,y) => (y.r.fecha || "").localeCompare(x.r.fecha || ""));
   $("returnsTable").innerHTML = rows.length ? rows.map(({e,r}) => `<tr><td><span class="equipment-name">${escapeHTML(e.marca)}</span><span class="subtext">${escapeHTML(e.tipo)}</span></td><td>${escapeHTML(r.recibidoDe)}</td><td>${escapeHTML(r.area)}</td><td>${dateText(r.fecha)}</td><td>${statusPill(r.estado)}</td><td>${r.firma ? `<a href="${r.firma}" target="_blank" rel="noopener">Ver firma</a>` : "—"}</td></tr>`).join("") : '<tr><td colspan="6" class="empty-cell">No hay recepciones registradas.</td></tr>';
 }
-function resetEquipmentForm() { $("equipmentForm").reset(); $("equipmentId").value = ""; $("equipmentDialogTitle").textContent = "Registrar equipo"; $("available").value = "si"; $("equipmentStatus").value = "Bueno"; }
+function updatePeripheralsDisplay() {
+  const container = $("peripheralsDisplay");
+  if (!container) return;
+  const checkboxes = document.querySelectorAll('input[name="peripheralOption"]:checked');
+  const values = Array.from(checkboxes).map(cb => cb.value);
+  $("peripherals").value = values.join(", ");
+
+  if (values.length === 0) {
+    container.innerHTML = '<span class="multiselect-placeholder">Seleccionar periféricos...</span>';
+  } else {
+    container.innerHTML = values.map(v => `<span class="multiselect-tag">${escapeHTML(v)}</span>`).join("");
+  }
+}
+
+function setPeripheralsValue(valString = "") {
+  const checkboxes = document.querySelectorAll('input[name="peripheralOption"]');
+  checkboxes.forEach(cb => cb.checked = false);
+
+  if (valString) {
+    const items = valString.split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+    checkboxes.forEach(cb => {
+      if (items.includes(cb.value.toLowerCase())) {
+        cb.checked = true;
+      }
+    });
+    const matchedAny = Array.from(checkboxes).some(cb => items.includes(cb.value.toLowerCase()));
+    if (!matchedAny && items.length > 0) {
+      const otroCb = Array.from(checkboxes).find(cb => cb.value.toLowerCase() === "otro");
+      if (otroCb) otroCb.checked = true;
+    }
+  }
+  updatePeripheralsDisplay();
+}
+
+function setupPeripheralsSelect() {
+  const container = $("peripheralsSelectContainer");
+  const trigger = $("peripheralsTrigger");
+  const clearBtn = $("clearPeripheralsBtn");
+  if (!container || !trigger) return;
+
+  trigger.addEventListener("click", (e) => {
+    e.stopPropagation();
+    container.classList.toggle("open");
+    trigger.setAttribute("aria-expanded", container.classList.contains("open") ? "true" : "false");
+  });
+
+  trigger.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      container.classList.toggle("open");
+      trigger.setAttribute("aria-expanded", container.classList.contains("open") ? "true" : "false");
+    } else if (e.key === "Escape") {
+      container.classList.remove("open");
+      trigger.setAttribute("aria-expanded", "false");
+    }
+  });
+
+  document.querySelectorAll('input[name="peripheralOption"]').forEach(cb => {
+    cb.addEventListener("change", updatePeripheralsDisplay);
+  });
+
+  if (clearBtn) {
+    clearBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      setPeripheralsValue("");
+    });
+  }
+
+  document.addEventListener("click", (e) => {
+    if (!container.contains(e.target)) {
+      container.classList.remove("open");
+      trigger.setAttribute("aria-expanded", "false");
+    }
+  });
+}
+
+function resetEquipmentForm() {
+  $("equipmentForm").reset();
+  $("equipmentId").value = "";
+  $("equipmentDialogTitle").textContent = "Registrar equipo";
+  $("available").value = "si";
+  $("equipmentStatus").value = "Bueno";
+  $("type").value = "";
+  setPeripheralsValue("");
+}
+
 function editEquipment(id) {
   const e = equipment.find(x => x.id === id); if (!e) return;
   resetEquipmentForm();
-  $("equipmentId").value = e.id; $("brand").value = e.marca || ""; $("type").value = e.tipo || "";
-  $("equipmentStatus").value = e.estado || "Bueno"; $("available").value = e.disponible || "si";
-  $("peripherals").value = e.perifericos || ""; $("assignedBy").value = e.asignadoPor || "";
-  $("equipmentDialogTitle").textContent = "Editar equipo"; openDialog("equipmentDialog");
+  $("equipmentId").value = e.id;
+  $("brand").value = e.marca || "";
+
+  if (e.tipo) {
+    const normalizedTarget = e.tipo.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const match = Array.from($("type").options).find(opt =>
+      opt.value.toLowerCase() === e.tipo.toLowerCase() ||
+      opt.value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() === normalizedTarget
+    );
+    if (match) {
+      $("type").value = match.value;
+    } else {
+      const customOpt = new Option(e.tipo, e.tipo, true, true);
+      $("type").add(customOpt);
+      $("type").value = e.tipo;
+    }
+  } else {
+    $("type").value = "";
+  }
+
+  $("equipmentStatus").value = e.estado || "Bueno";
+  $("available").value = e.disponible || "si";
+  setPeripheralsValue(e.perifericos || "");
+  $("assignedBy").value = e.registradoPor || e.asignadoPor || "";
+  $("equipmentDialogTitle").textContent = "Editar equipo";
+  openDialog("equipmentDialog");
 }
 function prepareAssignment(id) {
   const e = equipment.find(x => x.id === id); if (!e) return;
@@ -135,7 +242,7 @@ function prepareReturn(id) {
 async function saveEquipment(event) {
   event.preventDefault();
   const id = $("equipmentId").value;
-  const data = { marca:$("brand").value.trim(), tipo:$("type").value.trim(), estado:$("equipmentStatus").value, disponible:$("available").value, perifericos:$("peripherals").value.trim(), asignadoPor:$("assignedBy").value.trim(), updatedAt:serverTimestamp() };
+  const data = { marca:$("brand").value.trim(), tipo:$("type").value.trim(), estado:$("equipmentStatus").value, disponible:$("available").value, perifericos:$("peripherals").value.trim(), asignadoPor:$("assignedBy").value.trim(), registradoPor:$("assignedBy").value.trim(), updatedAt:serverTimestamp() };
   try {
     if (id) await updateDoc(doc(db,equipmentCollection,id), data);
     else await addDoc(collection(db,equipmentCollection), {...data, asignaciones:[], recepciones:[], createdAt:serverTimestamp()});
@@ -169,7 +276,7 @@ function showDetail(id) {
   $("historyContent").innerHTML = `<div class="detail-grid">
     <div class="detail-item"><small>Marca</small><strong>${escapeHTML(e.marca)}</strong></div><div class="detail-item"><small>Tipo</small><strong>${escapeHTML(e.tipo)}</strong></div>
     <div class="detail-item"><small>Estado actual</small><strong>${escapeHTML(e.estado)}</strong></div><div class="detail-item"><small>Disponibilidad</small><strong>${e.disponible === "si" ? "Disponible" : "No disponible"}</strong></div>
-    <div class="detail-item"><small>Periféricos actuales</small><strong>${escapeHTML(e.perifericos || "—")}</strong></div><div class="detail-item"><small>Asignado por</small><strong>${escapeHTML(e.asignadoPor || "—")}</strong></div>
+    <div class="detail-item"><small>Periféricos actuales</small><strong>${escapeHTML(e.perifericos || "—")}</strong></div><div class="detail-item"><small>Registrado por</small><strong>${escapeHTML(e.registradoPor || e.asignadoPor || "—")}</strong></div>
   </div>
   <div class="history-block"><h3>Historial de asignaciones (${aList.length})</h3>${aList.length ? [...aList].reverse().map(a => `<div class="history-entry"><strong>${escapeHTML(a.asignadoA)}</strong> · ${escapeHTML(a.area)}<br>Fecha: ${dateText(a.fecha)} · Estado: ${escapeHTML(a.estado)}<br>Periféricos: ${escapeHTML(a.perifericos || "—")}<br>Recibido por: ${escapeHTML(a.recibidoPor || "—")}${a.firma ? `<br><img class="signature-preview" src="${a.firma}" alt="Firma de asignación">` : ""}</div>`).join("") : '<p class="empty-history">Sin asignaciones.</p>'}</div>
   <div class="history-block"><h3>Historial de recepciones (${rList.length})</h3>${rList.length ? [...rList].reverse().map(r => `<div class="history-entry"><strong>Recibido de: ${escapeHTML(r.recibidoDe)}</strong> · ${escapeHTML(r.area)}<br>Fecha: ${dateText(r.fecha)} · Estado: ${escapeHTML(r.estado)}<br>Periféricos: ${escapeHTML(r.perifericos || "—")}${r.firma ? `<br><img class="signature-preview" src="${r.firma}" alt="Firma de recepción">` : ""}</div>`).join("") : '<p class="empty-history">Sin recepciones.</p>'}</div>`;
@@ -212,6 +319,7 @@ document.addEventListener("click",event=>{
 });
 $("mobileMenu").addEventListener("click",()=>$("sidebar").classList.toggle("open"));
 ["assignmentSignature","returnSignature"].forEach(setupSignaturePad);
+setupPeripheralsSelect();
 
 const configReady = firebaseConfig.apiKey && !firebaseConfig.apiKey.startsWith("PEGA_") && firebaseConfig.projectId && !firebaseConfig.projectId.startsWith("TU-");
 if (!configReady) {
