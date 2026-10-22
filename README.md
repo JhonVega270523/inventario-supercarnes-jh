@@ -7,7 +7,9 @@ Aplicación responsive en HTML, CSS y JavaScript con Cloud Firestore. Incluye:
 - Recepciones con persona que devuelve, área, fecha, periféricos, estado y firma dibujada.
 - Historial de asignaciones y devoluciones por equipo.
 - Búsqueda, filtros y panel de indicadores.
-- Diseño adaptado a celular, tablet y computador.
+- Columna dedicada de serial en todas las tablas del sistema.
+- Exportación general a Excel y descarga de ficha técnica del activo en PDF con firmas e historial completo.
+- Diseño adaptado a celular, tablet y computador con botones de acción optimizados (iconos de color en móvil).
 
 ## 1. Crear Firebase
 1. Entra a https://console.firebase.google.com/ y crea un proyecto.

@@ -1,11 +1,13 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, doc, addDoc, getDocs, getDoc, updateDoc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
+import { LOGO_JH_DATA_URL } from "./logo-data.js";
 
 const $ = id => document.getElementById(id);
 const equipmentCollection = "equipos";
 let db = null;
 let equipment = [];
+let currentDetailEquipmentId = null;
 let toastTimer;
 
 function toast(message) {
@@ -84,8 +86,22 @@ function renderRecent() {
   const rows = equipment.slice(0,5);
   $("recentTable").innerHTML = rows.length ? rows.map(e => {
     const a = currentAssignment(e);
-    return `<tr><td><span class="equipment-name">${escapeHTML(equipmentName(e))}</span><span class="subtext">${escapeHTML(e.tipo)}</span></td><td>${escapeHTML(e.tipo)}</td><td>${statusPill(e.estado)}</td><td>${availabilityPill(e.disponible, e.estado)}</td><td>${escapeHTML(a?.asignadoA || "—")}</td><td><button class="action-btn" data-action="detail" data-id="${e.id}">Ver detalle</button></td></tr>`;
-  }).join("") : '<tr><td colspan="6" class="empty-cell">Aún no hay equipos. Registra el primero para comenzar.</td></tr>';
+    return `<tr>
+      <td><span class="equipment-name">${escapeHTML(e.marca)}</span><span class="subtext">${escapeHTML(e.tipo)}</span></td>
+      <td><span class="serial-tag">${escapeHTML(e.serial || e.referencia || "—")}</span></td>
+      <td>${escapeHTML(e.tipo)}</td>
+      <td>${statusPill(e.estado)}</td>
+      <td>${availabilityPill(e.disponible, e.estado)}</td>
+      <td>${escapeHTML(a?.asignadoA || "—")}</td>
+      <td>
+        <div class="actions">
+          <button class="action-btn action-btn-detail" data-action="detail" data-id="${e.id}" title="Ver detalle del activo" aria-label="Ver detalle">
+            <span class="btn-icon">👁</span><span class="btn-text">Ver</span>
+          </button>
+        </div>
+      </td>
+    </tr>`;
+  }).join("") : '<tr><td colspan="7" class="empty-cell">Aún no hay equipos. Registra el primero para comenzar.</td></tr>';
 }
 function renderInventory() {
   const term = $("searchInput").value.trim().toLowerCase();
@@ -113,34 +129,70 @@ function renderInventory() {
   $("inventoryTable").innerHTML = filtered.length ? filtered.map(e => {
     const a = currentAssignment(e);
     const isBaja = (e.estado || "").toLowerCase() === "de baja";
-    let actionBtns = `<button class="action-btn" data-action="detail" data-id="${e.id}">Ver</button><button class="action-btn" data-action="edit" data-id="${e.id}">Editar</button>`;
+    let actionBtns = `
+      <button class="action-btn action-btn-detail" data-action="detail" data-id="${e.id}" title="Ver detalle del activo" aria-label="Ver detalle">
+        <span class="btn-icon">👁</span><span class="btn-text">Ver</span>
+      </button>
+      <button class="action-btn action-btn-edit" data-action="edit" data-id="${e.id}" title="Editar equipo" aria-label="Editar">
+        <span class="btn-icon">✎</span><span class="btn-text">Editar</span>
+      </button>`;
     if (!isBaja) {
       if (e.disponible === "si") {
-        actionBtns += `<button class="action-btn" data-action="assign" data-id="${e.id}">Asignar</button>`;
+        actionBtns += `
+          <button class="action-btn action-btn-assign" data-action="assign" data-id="${e.id}" title="Asignar equipo" aria-label="Asignar">
+            <span class="btn-icon">↗</span><span class="btn-text">Asignar</span>
+          </button>`;
       } else {
-        actionBtns += `<button class="action-btn" data-action="receive" data-id="${e.id}">Recibir</button>`;
+        actionBtns += `
+          <button class="action-btn action-btn-receive" data-action="receive" data-id="${e.id}" title="Recibir equipo devuelto" aria-label="Recibir">
+            <span class="btn-icon">↙</span><span class="btn-text">Recibir</span>
+          </button>`;
       }
-      actionBtns += `<button class="action-btn btn-baja" data-action="decommission" data-id="${e.id}" title="Dar de baja al equipo">Dar de baja</button>`;
+      actionBtns += `
+        <button class="action-btn action-btn-baja" data-action="decommission" data-id="${e.id}" title="Dar de baja al equipo" aria-label="Dar de baja">
+          <span class="btn-icon">✕</span><span class="btn-text">Dar de baja</span>
+        </button>`;
     }
     return `<tr>
-      <td><span class="equipment-name">${escapeHTML(equipmentName(e))}</span><span class="subtext">${escapeHTML(e.tipo)}</span></td>
-      <td>${statusPill(e.estado)}</td><td>${escapeHTML(e.perifericos || "—")}</td><td>${availabilityPill(e.disponible, e.estado)}</td>
-      <td>${escapeHTML(a?.asignadoA || "—")}<span class="subtext">${escapeHTML(a?.area || "")}</span></td><td>${dateText(a?.fecha)}</td>
+      <td><span class="equipment-name">${escapeHTML(e.marca || "—")}</span></td>
+      <td><span class="serial-tag">${escapeHTML(e.serial || e.referencia || "—")}</span></td>
+      <td>${escapeHTML(e.tipo || "—")}</td>
+      <td>${statusPill(e.estado)}</td>
+      <td>${escapeHTML(e.perifericos || "—")}</td>
+      <td>${availabilityPill(e.disponible, e.estado)}</td>
+      <td>${escapeHTML(a?.asignadoA || "—")}<span class="subtext">${escapeHTML(a?.area || "")}</span></td>
+      <td>${dateText(a?.fecha)}</td>
       <td><div class="actions">${actionBtns}</div></td>
     </tr>`;
-  }).join("") : '<tr><td colspan="7" class="empty-cell">No se encontraron equipos con esos filtros.</td></tr>';
+  }).join("") : '<tr><td colspan="9" class="empty-cell">No se encontraron equipos con esos filtros.</td></tr>';
 }
 function renderAssignments() {
   const rows = [];
   equipment.forEach(e => (e.asignaciones || []).forEach(a => rows.push({e,a})));
   rows.sort((x,y) => (y.a.fecha || "").localeCompare(x.a.fecha || ""));
-  $("assignmentsTable").innerHTML = rows.length ? rows.map(({e,a}) => `<tr><td><span class="equipment-name">${escapeHTML(equipmentName(e))}</span><span class="subtext">${escapeHTML(e.tipo)}</span></td><td>${escapeHTML(a.asignadoA)}</td><td>${escapeHTML(a.area)}</td><td>${dateText(a.fecha)}</td><td>${statusPill(a.estado)}</td><td>${escapeHTML(a.entregadoPor || a.recibidoPor || "—")}</td></tr>`).join("") : '<tr><td colspan="6" class="empty-cell">No hay asignaciones registradas.</td></tr>';
+  $("assignmentsTable").innerHTML = rows.length ? rows.map(({e,a}) => `<tr>
+    <td><span class="equipment-name">${escapeHTML(e.marca)}</span><span class="subtext">${escapeHTML(e.tipo)}</span></td>
+    <td><span class="serial-tag">${escapeHTML(e.serial || e.referencia || "—")}</span></td>
+    <td>${escapeHTML(a.asignadoA)}</td>
+    <td>${escapeHTML(a.area)}</td>
+    <td>${dateText(a.fecha)}</td>
+    <td>${statusPill(a.estado)}</td>
+    <td>${escapeHTML(a.entregadoPor || a.recibidoPor || "—")}</td>
+  </tr>`).join("") : '<tr><td colspan="7" class="empty-cell">No hay asignaciones registradas.</td></tr>';
 }
 function renderReturns() {
   const rows = [];
   equipment.forEach(e => (e.recepciones || []).forEach(r => rows.push({e,r})));
   rows.sort((x,y) => (y.r.fecha || "").localeCompare(x.r.fecha || ""));
-  $("returnsTable").innerHTML = rows.length ? rows.map(({e,r}) => `<tr><td><span class="equipment-name">${escapeHTML(equipmentName(e))}</span><span class="subtext">${escapeHTML(e.tipo)}</span></td><td>${escapeHTML(r.recibidoDe)}</td><td>${escapeHTML(r.area)}</td><td>${dateText(r.fecha)}</td><td>${statusPill(r.estado)}</td><td>${r.firma ? `<a href="${r.firma}" target="_blank" rel="noopener">Ver firma</a>` : "—"}</td></tr>`).join("") : '<tr><td colspan="6" class="empty-cell">No hay recepciones registradas.</td></tr>';
+  $("returnsTable").innerHTML = rows.length ? rows.map(({e,r}) => `<tr>
+    <td><span class="equipment-name">${escapeHTML(e.marca)}</span><span class="subtext">${escapeHTML(e.tipo)}</span></td>
+    <td><span class="serial-tag">${escapeHTML(e.serial || e.referencia || "—")}</span></td>
+    <td>${escapeHTML(r.recibidoDe)}</td>
+    <td>${escapeHTML(r.area)}</td>
+    <td>${dateText(r.fecha)}</td>
+    <td>${statusPill(r.estado)}</td>
+    <td>${r.firma ? `<a href="${r.firma}" target="_blank" rel="noopener">Ver firma</a>` : "—"}</td>
+  </tr>`).join("") : '<tr><td colspan="7" class="empty-cell">No hay recepciones registradas.</td></tr>';
 }
 function updatePeripheralsDisplay() {
   const container = $("peripheralsDisplay");
@@ -365,6 +417,7 @@ async function saveReturn(event) {
 }
 function showDetail(id) {
   const e = equipment.find(x => x.id === id); if (!e) return;
+  currentDetailEquipmentId = id;
   $("historyTitle").textContent = `${equipmentName(e)} · ${e.tipo}`;
   const aList = e.asignaciones || [], rList = e.recepciones || [];
   const hasObs = Boolean(e.observaciones && e.observaciones.trim());
@@ -404,6 +457,207 @@ function showDetail(id) {
 
   setupDetailNotesEvents(e);
   openDialog("historyDialog");
+}
+
+async function downloadEquipmentPdf(id) {
+  const e = equipment.find(x => x.id === id);
+  if (!e) return;
+  toast("Generando PDF del activo...");
+
+  const curAssign = currentAssignment(e);
+  const aList = e.asignaciones || [];
+  const rList = e.recepciones || [];
+  const cleanBrand = (e.marca || "JH").replace(/[^\w-]/g, "_");
+  const cleanSerial = (e.serial || e.referencia || "SN").replace(/[^\w-]/g, "_");
+  const fileName = `Ficha_Activo_${cleanBrand}_${cleanSerial}_${today()}.pdf`;
+
+  const container = document.createElement("div");
+  container.className = "pdf-container";
+
+  let assignSection = "";
+  if (curAssign) {
+    assignSection = `
+      <div class="pdf-section">
+        <h2 class="pdf-section-title">2. ASIGNACIÓN ACTUAL</h2>
+        <div class="pdf-grid">
+          <div class="pdf-field"><small>Asignado actualmente a:</small><strong>${escapeHTML(curAssign.asignadoA)}</strong></div>
+          <div class="pdf-field"><small>Área / Departamento:</small><strong>${escapeHTML(curAssign.area)}</strong></div>
+          <div class="pdf-field"><small>Fecha de asignación:</small><strong>${dateText(curAssign.fecha)}</strong></div>
+          <div class="pdf-field"><small>Condición al entregar:</small><strong>${escapeHTML(curAssign.estado)}</strong></div>
+          <div class="pdf-field pdf-full"><small>Periféricos entregados:</small><strong>${escapeHTML(curAssign.perifericos || "—")}</strong></div>
+          <div class="pdf-field pdf-full"><small>Entregado por:</small><strong>${escapeHTML(curAssign.entregadoPor || curAssign.recibidoPor || "—")}</strong></div>
+        </div>
+      </div>
+    `;
+  } else if ((e.estado || "").toLowerCase() === "de baja") {
+    assignSection = `
+      <div class="pdf-section">
+        <h2 class="pdf-section-title">2. ASIGNACIÓN ACTUAL</h2>
+        <p class="pdf-empty-text">El equipo se encuentra actualmente dado de baja.</p>
+      </div>
+    `;
+  } else {
+    assignSection = `
+      <div class="pdf-section">
+        <h2 class="pdf-section-title">2. ASIGNACIÓN ACTUAL</h2>
+        <p class="pdf-empty-text">El equipo no se encuentra asignado (Disponible en inventario).</p>
+      </div>
+    `;
+  }
+
+  const aListHtml = aList.length ? `
+    <table class="pdf-table">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Asignado a</th>
+          <th>Área</th>
+          <th>Estado</th>
+          <th>Periféricos</th>
+          <th>Entregado por</th>
+          <th>Firmas</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${[...aList].reverse().map(a => {
+          const dSig = a.firmaEntrega ? `<div><small>Entrega:</small><img class="pdf-sig-img" src="${a.firmaEntrega}" alt="Firma"></div>` : "";
+          const rSig = (a.firmaRecibe || a.firma) ? `<div><small>Recibe:</small><img class="pdf-sig-img" src="${a.firmaRecibe || a.firma}" alt="Firma"></div>` : "";
+          const sigs = (dSig || rSig) ? `${dSig}${rSig}` : "—";
+          return `<tr>
+            <td>${dateText(a.fecha)}</td>
+            <td><strong>${escapeHTML(a.asignadoA)}</strong></td>
+            <td>${escapeHTML(a.area)}</td>
+            <td>${escapeHTML(a.estado)}</td>
+            <td>${escapeHTML(a.perifericos || "—")}</td>
+            <td>${escapeHTML(a.entregadoPor || a.recibidoPor || "—")}</td>
+            <td>${sigs}</td>
+          </tr>`;
+        }).join("")}
+      </tbody>
+    </table>
+  ` : '<p class="pdf-empty-text">Sin asignaciones registradas.</p>';
+
+  const rListHtml = rList.length ? `
+    <table class="pdf-table">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Recibido de</th>
+          <th>Área</th>
+          <th>Estado recibido</th>
+          <th>Periféricos</th>
+          <th>Firma</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${[...rList].reverse().map(r => `<tr>
+          <td>${dateText(r.fecha)}</td>
+          <td><strong>${escapeHTML(r.recibidoDe)}</strong></td>
+          <td>${escapeHTML(r.area)}</td>
+          <td>${escapeHTML(r.estado)}</td>
+          <td>${escapeHTML(r.perifericos || "—")}</td>
+          <td>${r.firma ? `<img class="pdf-sig-img" src="${r.firma}" alt="Firma">` : "—"}</td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
+  ` : '<p class="pdf-empty-text">Sin recepciones registradas.</p>';
+
+  container.innerHTML = `
+    <div class="pdf-header">
+      <img src="${LOGO_JH_DATA_URL}" class="pdf-logo" alt="Supercarnes JH">
+      <div class="pdf-header-info">
+        <h1>SUPERCARNES JH</h1>
+        <p>FICHA TÉCNICA Y CONTROL DE ACTIVO</p>
+        <p>Generado el ${new Date().toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" })}</p>
+      </div>
+    </div>
+
+    <div class="pdf-section">
+      <h2 class="pdf-section-title">1. INFORMACIÓN GENERAL DEL EQUIPO</h2>
+      <div class="pdf-grid">
+        <div class="pdf-field"><small>Marca:</small><strong>${escapeHTML(e.marca || "—")}</strong></div>
+        <div class="pdf-field"><small>Serial / Referencia:</small><strong>${escapeHTML(e.serial || e.referencia || "—")}</strong></div>
+        <div class="pdf-field"><small>Tipo de equipo:</small><strong>${escapeHTML(e.tipo || "—")}</strong></div>
+        <div class="pdf-field"><small>Estado actual:</small><strong>${escapeHTML(e.estado || "—")}</strong></div>
+        <div class="pdf-field"><small>Disponibilidad:</small><strong>${(e.estado || "").toLowerCase() === "de baja" ? "De baja" : (e.disponible === "si" ? "Disponible" : "Asignado / No disponible")}</strong></div>
+        <div class="pdf-field"><small>Registrado por:</small><strong>${escapeHTML(e.registradoPor || e.asignadoPor || "—")}</strong></div>
+        <div class="pdf-field pdf-full"><small>Periféricos actuales:</small><strong>${escapeHTML(e.perifericos || "Ninguno")}</strong></div>
+        <div class="pdf-field pdf-full"><small>Observaciones:</small><div style="white-space:pre-wrap;margin-top:2px;color:#334155;">${escapeHTML(e.observaciones || "Sin observaciones registradas.")}</div></div>
+      </div>
+    </div>
+
+    ${assignSection}
+
+    <div class="pdf-section">
+      <h2 class="pdf-section-title">3. HISTORIAL DE ASIGNACIONES (${aList.length})</h2>
+      ${aListHtml}
+    </div>
+
+    <div class="pdf-section">
+      <h2 class="pdf-section-title">4. HISTORIAL DE RECEPCIONES (${rList.length})</h2>
+      ${rListHtml}
+    </div>
+
+    <div class="pdf-footer">
+      Supercarnes JH · Sistema de Gestión y Control de Equipos · Documento de Control Interno
+    </div>
+  `;
+
+  if (typeof window.html2pdf !== "undefined") {
+    const opt = {
+      margin: [10, 10, 10, 10],
+      filename: fileName,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, logging: false },
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
+    };
+    try {
+      await window.html2pdf().set(opt).from(container).save();
+      toast("PDF descargado correctamente.");
+    } catch (err) {
+      console.error("Error al exportar con html2pdf:", err);
+      fallbackPrintPdf(container, fileName);
+    }
+  } else {
+    fallbackPrintPdf(container, fileName);
+  }
+}
+
+function fallbackPrintPdf(container, fileName) {
+  const printWin = window.open("", "_blank");
+  if (!printWin) {
+    toast("Permite las ventanas emergentes en tu navegador para ver el PDF.");
+    return;
+  }
+  printWin.document.write(`
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+      <meta charset="UTF-8">
+      <title>${escapeHTML(fileName)}</title>
+      <link rel="stylesheet" href="styles.css">
+      <style>
+        body { background: white; margin: 0; padding: 20px; }
+        @media print {
+          body { padding: 0; }
+          @page { margin: 10mm; }
+        }
+      </style>
+    </head>
+    <body>
+      ${container.outerHTML}
+      <script>
+        window.onload = function() {
+          setTimeout(function() {
+            window.print();
+          }, 350);
+        };
+      <\/script>
+    </body>
+    </html>
+  `);
+  printWin.document.close();
+  toast("Abriendo ventana de impresión para guardar como PDF.");
 }
 
 function setupDetailNotesEvents(e) {
@@ -638,6 +892,12 @@ document.addEventListener("click",event=>{
 });
 $("mobileMenu").addEventListener("click",()=>$("sidebar").classList.toggle("open"));
 $("exportExcelBtn")?.addEventListener("click",exportToExcel);
+$("downloadPdfBtn")?.addEventListener("click", () => {
+  if (currentDetailEquipmentId) downloadEquipmentPdf(currentDetailEquipmentId);
+});
+$("downloadPdfBtn2")?.addEventListener("click", () => {
+  if (currentDetailEquipmentId) downloadEquipmentPdf(currentDetailEquipmentId);
+});
 ["assignmentSignature","assignmentDeliverySignature","returnSignature"].forEach(setupSignaturePad);
 setupPeripheralsSelect();
 
@@ -646,7 +906,7 @@ if (!configReady) {
   $("connectionText").textContent="Firebase pendiente de configurar";
   $("setupNotice").hidden=false;
   ["statTotal","statAvailable","statAssigned","statOther"].forEach(id=>$(id).textContent="—");
-  $("inventoryTable").innerHTML='<tr><td colspan="7" class="empty-cell">Configura Firebase para comenzar a registrar equipos.</td></tr>';
+  $("inventoryTable").innerHTML='<tr><td colspan="9" class="empty-cell">Configura Firebase para comenzar a registrar equipos.</td></tr>';
 } else {
   try {
     const app=initializeApp(firebaseConfig); db=getFirestore(app);

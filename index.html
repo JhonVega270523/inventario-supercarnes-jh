@@ -48,24 +48,24 @@
           <article class="stat-card"><div class="stat-icon blue">⚙</div><div><span>En mantenimiento / otros</span><strong id="statOther">0</strong><small>Revisar estado del equipo</small></div></article>
         </div>
         <div class="section-heading"><div><h3>Equipos recientes</h3><p>Últimos equipos registrados o actualizados</p></div><button class="btn btn-outline" data-goto="inventory">Ver inventario →</button></div>
-        <div class="table-card"><div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Tipo</th><th>Estado</th><th>Disponibilidad</th><th>Asignado a</th><th></th></tr></thead><tbody id="recentTable"><tr><td colspan="6" class="empty-cell">Conecta Firebase para cargar los equipos.</td></tr></tbody></table></div></div>
+        <div class="table-card"><div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Serial</th><th>Tipo</th><th>Estado</th><th>Disponibilidad</th><th>Asignado a</th><th>Acciones</th></tr></thead><tbody id="recentTable"><tr><td colspan="7" class="empty-cell">Conecta Firebase para cargar los equipos.</td></tr></tbody></table></div></div>
       </section>
 
       <section class="view" id="inventoryView">
         <div class="section-heading"><div><h3>Inventario de equipos</h3><p>Registro maestro de los activos tecnológicos</p></div><div class="heading-actions"><button class="btn btn-outline" id="exportExcelBtn">📥 Exportar a Excel</button><button class="btn btn-primary" id="newEquipmentBtn2">＋ Nuevo equipo</button></div></div>
-        <div class="toolbar"><div class="search-box"><span>⌕</span><input id="searchInput" type="search" placeholder="Buscar por marca, tipo o responsable..."></div><select id="availabilityFilter"><option value="">Todas las disponibilidades</option><option value="si">Disponible</option><option value="no">No disponible</option><option value="baja">De baja</option></select><select id="statusFilter"><option value="">Todos los estados</option><option>Nuevo</option><option>Bueno</option><option>En Mantenimiento</option><option>De Baja</option></select></div>
-        <div class="table-card"><div class="table-wrap"><table><thead><tr><th>Marca / Tipo</th><th>Estado</th><th>Periféricos</th><th>Disponible</th><th>Asignado a</th><th>Fecha asignación</th><th>Acciones</th></tr></thead><tbody id="inventoryTable"><tr><td colspan="7" class="empty-cell">Cargando inventario...</td></tr></tbody></table></div></div>
+        <div class="toolbar"><div class="search-box"><span>⌕</span><input id="searchInput" type="search" placeholder="Buscar por marca, serial, tipo o responsable..."></div><select id="availabilityFilter"><option value="">Todas las disponibilidades</option><option value="si">Disponible</option><option value="no">No disponible</option><option value="baja">De baja</option></select><select id="statusFilter"><option value="">Todos los estados</option><option>Nuevo</option><option>Bueno</option><option>En Mantenimiento</option><option>De Baja</option></select></div>
+        <div class="table-card"><div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Serial</th><th>Tipo</th><th>Estado</th><th>Periféricos</th><th>Disponible</th><th>Asignado a</th><th>Fecha asignación</th><th>Acciones</th></tr></thead><tbody id="inventoryTable"><tr><td colspan="9" class="empty-cell">Cargando inventario...</td></tr></tbody></table></div></div>
         <p class="table-footnote" id="inventoryCount">0 equipos</p>
       </section>
 
       <section class="view" id="assignmentsView">
         <div class="section-heading"><div><h3>Historial de asignaciones</h3><p>Entrega de equipos y responsables</p></div></div>
-        <div class="table-card"><div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Asignado a</th><th>Área</th><th>Fecha</th><th>Estado al asignar</th><th>Entregado por</th></tr></thead><tbody id="assignmentsTable"><tr><td colspan="6" class="empty-cell">No hay asignaciones registradas.</td></tr></tbody></table></div></div>
+        <div class="table-card"><div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Serial</th><th>Asignado a</th><th>Área</th><th>Fecha</th><th>Estado al asignar</th><th>Entregado por</th></tr></thead><tbody id="assignmentsTable"><tr><td colspan="7" class="empty-cell">No hay asignaciones registradas.</td></tr></tbody></table></div></div>
       </section>
 
       <section class="view" id="returnsView">
         <div class="section-heading"><div><h3>Historial de recepciones</h3><p>Registro de devolución y condición de los equipos</p></div></div>
-        <div class="table-card"><div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Recibido de</th><th>Área</th><th>Fecha</th><th>Estado recibido</th><th>Firma</th></tr></thead><tbody id="returnsTable"><tr><td colspan="6" class="empty-cell">No hay recepciones registradas.</td></tr></tbody></table></div></div>
+        <div class="table-card"><div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Serial</th><th>Recibido de</th><th>Área</th><th>Fecha</th><th>Estado recibido</th><th>Firma</th></tr></thead><tbody id="returnsTable"><tr><td colspan="7" class="empty-cell">No hay recepciones registradas.</td></tr></tbody></table></div></div>
       </section>
       <footer>Supercarnes JH · Sistema interno de inventario de equipos</footer>
     </main>
@@ -185,9 +185,28 @@
     </form>
   </dialog>
 
-  <dialog id="historyDialog" class="modal"><div class="modal-form"><div class="modal-header"><div><p class="eyebrow">DETALLE DEL ACTIVO</p><h2 id="historyTitle">Detalle del equipo</h2></div><button type="button" class="icon-btn" data-close="historyDialog">✕</button></div><div id="historyContent"></div><div class="modal-actions"><button class="btn btn-outline" data-close="historyDialog">Cerrar</button></div></div></dialog>
+  <dialog id="historyDialog" class="modal">
+    <div class="modal-form">
+      <div class="modal-header">
+        <div>
+          <p class="eyebrow">DETALLE DEL ACTIVO</p>
+          <h2 id="historyTitle">Detalle del equipo</h2>
+        </div>
+        <div class="modal-header-actions">
+          <button type="button" class="btn btn-outline btn-sm" id="downloadPdfBtn" title="Descargar detalle en PDF">📥 Descargar PDF</button>
+          <button type="button" class="icon-btn" data-close="historyDialog" aria-label="Cerrar modal">✕</button>
+        </div>
+      </div>
+      <div id="historyContent"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-primary" id="downloadPdfBtn2">📥 Descargar PDF</button>
+        <button class="btn btn-outline" data-close="historyDialog">Cerrar</button>
+      </div>
+    </div>
+  </dialog>
   <div id="toast" class="toast" role="status"></div>
   <script src="xlsx.full.min.js" onerror="this.onerror=null;this.src='https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js'"></script>
+  <script src="html2pdf.bundle.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'"></script>
   <script type="module" src="app.js"></script>
 </body>
 </html>

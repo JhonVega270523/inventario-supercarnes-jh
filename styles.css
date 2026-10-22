@@ -148,3 +148,257 @@
   font-size:11.5px !important;
   border-radius:7px !important;
 }
+
+/* Modal Header Actions */
+.modal-header-actions{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+/* Etiqueta de Serial en tablas */
+.serial-tag{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+  font-size:11.5px;
+  font-weight:700;
+  color:#1e293b;
+  background:#f1f5f9;
+  border:1px solid #e2e8f0;
+  padding:3px 8px;
+  border-radius:6px;
+  letter-spacing:.3px;
+  display:inline-block;
+  white-space:nowrap;
+}
+
+/* Botones de acción generales */
+.actions{
+  display:flex;
+  gap:6px;
+  align-items:center;
+  flex-wrap:nowrap;
+}
+.action-btn{
+  border:1px solid var(--line);
+  background:white;
+  border-radius:7px;
+  padding:6px 9px;
+  font-size:11px;
+  font-weight:700;
+  color:#45484e;
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  line-height:1.2;
+  transition:all .15s ease;
+  white-space:nowrap;
+  cursor:pointer;
+}
+.action-btn .btn-icon{
+  font-size:12px;
+  line-height:1;
+}
+.action-btn-detail:hover{border-color:#2563eb;color:#2563eb;background:#eff6ff}
+.action-btn-edit:hover{border-color:#d97706;color:#d97706;background:#fffbeb}
+.action-btn-assign:hover{border-color:#16a34a;color:#16a34a;background:#f0fdf4}
+.action-btn-receive:hover{border-color:#7c3aed;color:#7c3aed;background:#f5f3ff}
+.action-btn-baja{color:var(--red)}
+.action-btn-baja:hover{border-color:var(--red);color:var(--red);background:var(--red-soft)}
+
+/* Vista móvil: Botones de acción como iconos con colores funcionales */
+@media(max-width:760px){
+  .actions{
+    gap:5px !important;
+    flex-wrap:nowrap !important;
+  }
+  .action-btn{
+    width:32px !important;
+    height:32px !important;
+    padding:0 !important;
+    display:inline-flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    border-radius:8px !important;
+    font-size:13.5px !important;
+    flex-shrink:0 !important;
+    box-shadow:0 1px 3px rgba(0,0,0,.04);
+  }
+  .action-btn .btn-text{
+    display:none !important;
+  }
+  .action-btn .btn-icon{
+    font-size:13.5px !important;
+    margin:0 !important;
+    display:inline-flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+  }
+
+  /* Colores correspondientes a cada función en móvil */
+  .action-btn-detail{
+    background:#eaf3ff !important;
+    color:#1d4ed8 !important;
+    border-color:#bfdbfe !important;
+  }
+  .action-btn-edit{
+    background:#fff7ed !important;
+    color:#c2410c !important;
+    border-color:#fed7aa !important;
+  }
+  .action-btn-assign{
+    background:#f0fdf4 !important;
+    color:#15803d !important;
+    border-color:#bbf7d0 !important;
+  }
+  .action-btn-receive{
+    background:#f5f3ff !important;
+    color:#6d28d9 !important;
+    border-color:#ddd6fe !important;
+  }
+  .action-btn-baja{
+    background:#fef2f2 !important;
+    color:#b91c1c !important;
+    border-color:#fecaca !important;
+  }
+  .action-btn:active{
+    transform:scale(.92);
+  }
+
+  /* Ajuste de cabecera en modal móvil */
+  .modal-header-actions{
+    gap:6px;
+  }
+  .modal-header-actions .btn-sm{
+    padding:6px 9px !important;
+    font-size:10.5px !important;
+  }
+}
+
+/* Plantilla y Documento PDF */
+.pdf-container{
+  background:#fff;
+  color:#1e293b;
+  font-family:Inter,system-ui,sans-serif;
+  font-size:12px;
+  line-height:1.45;
+  padding:24px 28px;
+  max-width:800px;
+  margin:0 auto;
+}
+.pdf-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  border-bottom:3px solid var(--red);
+  padding-bottom:14px;
+  margin-bottom:18px;
+}
+.pdf-logo{
+  max-width:145px;
+  height:auto;
+  display:block;
+}
+.pdf-header-info{
+  text-align:right;
+}
+.pdf-header-info h1{
+  margin:0 0 4px;
+  font-size:19px;
+  color:var(--red);
+  letter-spacing:-.4px;
+}
+.pdf-header-info p{
+  margin:0;
+  font-size:11px;
+  color:#64748b;
+  font-weight:600;
+}
+.pdf-section{
+  margin-bottom:18px;
+  page-break-inside:avoid;
+}
+.pdf-section-title{
+  font-size:12.5px;
+  font-weight:800;
+  color:var(--red);
+  text-transform:uppercase;
+  letter-spacing:.8px;
+  border-bottom:1.5px solid #f1f5f9;
+  padding-bottom:5px;
+  margin:0 0 10px;
+}
+.pdf-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px 14px;
+  background:#f8fafc;
+  border:1px solid #e2e8f0;
+  border-radius:8px;
+  padding:12px 14px;
+}
+.pdf-field{
+  font-size:11.5px;
+}
+.pdf-field small{
+  display:block;
+  color:#64748b;
+  font-size:9.5px;
+  font-weight:700;
+  text-transform:uppercase;
+  margin-bottom:2px;
+}
+.pdf-field strong{
+  color:#0f172a;
+}
+.pdf-full{
+  grid-column:1/-1;
+}
+.pdf-table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:10.5px;
+  margin-top:6px;
+}
+.pdf-table th{
+  background:#f1f5f9;
+  color:#475569;
+  font-weight:800;
+  text-transform:uppercase;
+  font-size:9.5px;
+  letter-spacing:.5px;
+  padding:7px 9px;
+  border:1px solid #cbd5e1;
+  text-align:left;
+}
+.pdf-table td{
+  padding:7px 9px;
+  border:1px solid #e2e8f0;
+  vertical-align:middle;
+  color:#1e293b;
+}
+.pdf-table tr:nth-child(even){
+  background:#fafafa;
+}
+.pdf-sig-img{
+  max-width:140px;
+  max-height:48px;
+  display:block;
+  background:#fff;
+  border:1px solid #e2e8f0;
+  border-radius:4px;
+  margin-top:3px;
+}
+.pdf-empty-text{
+  font-size:11px;
+  color:#94a3b8;
+  font-style:italic;
+  margin:4px 0 0;
+}
+.pdf-footer{
+  border-top:1px solid #e2e8f0;
+  padding-top:10px;
+  margin-top:22px;
+  text-align:center;
+  font-size:9.5px;
+  color:#94a3b8;
+}
