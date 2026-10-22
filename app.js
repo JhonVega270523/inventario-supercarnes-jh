@@ -472,40 +472,36 @@ async function downloadEquipmentPdf(id) {
   const cleanSerial = (e.serial || e.referencia || "SN").replace(/[^\w-]/g, "_");
   const fileName = `Ficha_Activo_${cleanBrand}_${cleanSerial}_${today()}.pdf`;
 
-  const container = document.createElement("div");
-  container.className = "pdf-container";
-
+  // — Sección de asignación actual —
   let assignSection = "";
   if (curAssign) {
     assignSection = `
-      <div class="pdf-section">
-        <h2 class="pdf-section-title">2. ASIGNACIÓN ACTUAL</h2>
-        <div class="pdf-grid">
-          <div class="pdf-field"><small>Asignado actualmente a:</small><strong>${escapeHTML(curAssign.asignadoA)}</strong></div>
-          <div class="pdf-field"><small>Área / Departamento:</small><strong>${escapeHTML(curAssign.area)}</strong></div>
-          <div class="pdf-field"><small>Fecha de asignación:</small><strong>${dateText(curAssign.fecha)}</strong></div>
-          <div class="pdf-field"><small>Condición al entregar:</small><strong>${escapeHTML(curAssign.estado)}</strong></div>
-          <div class="pdf-field pdf-full"><small>Periféricos entregados:</small><strong>${escapeHTML(curAssign.perifericos || "—")}</strong></div>
-          <div class="pdf-field pdf-full"><small>Entregado por:</small><strong>${escapeHTML(curAssign.entregadoPor || curAssign.recibidoPor || "—")}</strong></div>
+      <div style="margin-bottom:18px;">
+        <h2 style="font-size:12.5px;font-weight:800;color:#b5121b;text-transform:uppercase;letter-spacing:.8px;border-bottom:1.5px solid #f1f5f9;padding-bottom:5px;margin:0 0 10px;">2. ASIGNACIÓN ACTUAL</h2>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;">
+          <div><small style="display:block;color:#64748b;font-size:9.5px;font-weight:700;text-transform:uppercase;margin-bottom:2px;">Asignado actualmente a:</small><strong style="color:#0f172a;font-size:11.5px;">${escapeHTML(curAssign.asignadoA)}</strong></div>
+          <div><small style="display:block;color:#64748b;font-size:9.5px;font-weight:700;text-transform:uppercase;margin-bottom:2px;">Área / Departamento:</small><strong style="color:#0f172a;font-size:11.5px;">${escapeHTML(curAssign.area)}</strong></div>
+          <div><small style="display:block;color:#64748b;font-size:9.5px;font-weight:700;text-transform:uppercase;margin-bottom:2px;">Fecha de asignación:</small><strong style="color:#0f172a;font-size:11.5px;">${dateText(curAssign.fecha)}</strong></div>
+          <div><small style="display:block;color:#64748b;font-size:9.5px;font-weight:700;text-transform:uppercase;margin-bottom:2px;">Condición al entregar:</small><strong style="color:#0f172a;font-size:11.5px;">${escapeHTML(curAssign.estado)}</strong></div>
+          <div style="grid-column:1/-1;"><small style="display:block;color:#64748b;font-size:9.5px;font-weight:700;text-transform:uppercase;margin-bottom:2px;">Periféricos entregados:</small><strong style="color:#0f172a;font-size:11.5px;">${escapeHTML(curAssign.perifericos || "—")}</strong></div>
+          <div style="grid-column:1/-1;"><small style="display:block;color:#64748b;font-size:9.5px;font-weight:700;text-transform:uppercase;margin-bottom:2px;">Entregado por:</small><strong style="color:#0f172a;font-size:11.5px;">${escapeHTML(curAssign.entregadoPor || curAssign.recibidoPor || "—")}</strong></div>
         </div>
-      </div>
-    `;
+      </div>`;
   } else if ((e.estado || "").toLowerCase() === "de baja") {
     assignSection = `
-      <div class="pdf-section">
-        <h2 class="pdf-section-title">2. ASIGNACIÓN ACTUAL</h2>
-        <p class="pdf-empty-text">El equipo se encuentra actualmente dado de baja.</p>
-      </div>
-    `;
+      <div style="margin-bottom:18px;">
+        <h2 style="font-size:12.5px;font-weight:800;color:#b5121b;text-transform:uppercase;letter-spacing:.8px;border-bottom:1.5px solid #f1f5f9;padding-bottom:5px;margin:0 0 10px;">2. ASIGNACIÓN ACTUAL</h2>
+        <p style="font-size:11px;color:#64748b;padding:8px 0;">El equipo se encuentra actualmente dado de baja.</p>
+      </div>`;
   } else {
     assignSection = `
-      <div class="pdf-section">
-        <h2 class="pdf-section-title">2. ASIGNACIÓN ACTUAL</h2>
-        <p class="pdf-empty-text">El equipo no se encuentra asignado (Disponible en inventario).</p>
-      </div>
-    `;
+      <div style="margin-bottom:18px;">
+        <h2 style="font-size:12.5px;font-weight:800;color:#b5121b;text-transform:uppercase;letter-spacing:.8px;border-bottom:1.5px solid #f1f5f9;padding-bottom:5px;margin:0 0 10px;">2. ASIGNACIÓN ACTUAL</h2>
+        <p style="font-size:11px;color:#64748b;padding:8px 0;">El equipo no se encuentra asignado (Disponible en inventario).</p>
+      </div>`;
   }
 
+  // — Firmas —
   const activeAssign = curAssign || (aList.length ? aList[aList.length - 1] : null);
   const activeReturn = latestReturn(e);
 
@@ -523,7 +519,6 @@ async function downloadEquipmentPdf(id) {
 
   const deliveryName = activeAssign?.entregadoPor || activeAssign?.recibidoPor || e.registradoPor || e.asignadoPor || "Responsable de Entrega";
   const deliveryDate = activeAssign?.fecha ? dateText(activeAssign.fecha) : today();
-
   const receiveName = activeAssign?.asignadoA || (activeReturn ? activeReturn.recibidoDe : "Funcionario Responsable");
   const receiveArea = activeAssign?.area || (activeReturn?.area || "");
   const receiveDate = activeAssign?.fecha ? dateText(activeAssign.fecha) : today();
@@ -541,127 +536,102 @@ async function downloadEquipmentPdf(id) {
     }
   }
 
+  const sigCardStyle = "flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px 10px;text-align:center;display:flex;flex-direction:column;align-items:center;min-height:165px;justify-content:space-between;";
+  const sigRoleStyle = "display:block;font-size:9.5px;font-weight:800;color:#475569;letter-spacing:.6px;text-transform:uppercase;margin-bottom:6px;border-bottom:1px solid #e2e8f0;padding-bottom:4px;width:100%;";
+  const sigBoxStyle = "height:75px;display:flex;align-items:center;justify-content:center;width:100%;margin:4px 0;";
+  const sigInfoStyle = "width:100%;border-top:1px solid #cbd5e1;padding-top:6px;margin-top:4px;";
+
   let sigCardsHtml = `
-    <div class="pdf-sig-card">
-      <small class="pdf-sig-role">ENTREGADO POR (SISTEMAS / TI)</small>
-      <div class="pdf-sig-box">
-        ${deliverySig ? `<img class="pdf-signature-drawn" src="${deliverySig}" alt="Firma de entrega">` : `<div class="pdf-sig-empty-line"></div>`}
+    <div style="${sigCardStyle}">
+      <small style="${sigRoleStyle}">ENTREGADO POR (SISTEMAS / TI)</small>
+      <div style="${sigBoxStyle}">
+        ${deliverySig ? `<img src="${deliverySig}" style="max-height:68px;max-width:210px;object-fit:contain;display:block;" alt="Firma entrega">` : `<div style="width:75%;border-bottom:1.5px dashed #94a3b8;height:40px;margin:0 auto;"></div>`}
       </div>
-      <div class="pdf-sig-info">
-        <p class="pdf-sig-name">${escapeHTML(deliveryName)}</p>
-        <p class="pdf-sig-sub">Área de Sistemas / Soporte</p>
-        <p class="pdf-sig-date">Fecha: ${deliveryDate}</p>
-      </div>
-    </div>
-    <div class="pdf-sig-card">
-      <small class="pdf-sig-role">RECIBIDO A CONFORMIDAD</small>
-      <div class="pdf-sig-box">
-        ${receiveSig ? `<img class="pdf-signature-drawn" src="${receiveSig}" alt="Firma de quien recibe">` : `<div class="pdf-sig-empty-line"></div>`}
-      </div>
-      <div class="pdf-sig-info">
-        <p class="pdf-sig-name">${escapeHTML(receiveName)}</p>
-        <p class="pdf-sig-sub">${escapeHTML(receiveArea ? `Funcionario (${receiveArea})` : "Funcionario Responsable")}</p>
-        <p class="pdf-sig-date">Fecha: ${receiveDate}</p>
+      <div style="${sigInfoStyle}">
+        <p style="margin:0;font-size:11px;font-weight:800;color:#0f172a;">${escapeHTML(deliveryName)}</p>
+        <p style="margin:2px 0 0;font-size:9.5px;color:#64748b;font-weight:600;">Área de Sistemas / Soporte</p>
+        <p style="margin:2px 0 0;font-size:9px;color:#94a3b8;">Fecha: ${deliveryDate}</p>
       </div>
     </div>
-  `;
+    <div style="${sigCardStyle}">
+      <small style="${sigRoleStyle}">RECIBIDO A CONFORMIDAD</small>
+      <div style="${sigBoxStyle}">
+        ${receiveSig ? `<img src="${receiveSig}" style="max-height:68px;max-width:210px;object-fit:contain;display:block;" alt="Firma recibe">` : `<div style="width:75%;border-bottom:1.5px dashed #94a3b8;height:40px;margin:0 auto;"></div>`}
+      </div>
+      <div style="${sigInfoStyle}">
+        <p style="margin:0;font-size:11px;font-weight:800;color:#0f172a;">${escapeHTML(receiveName)}</p>
+        <p style="margin:2px 0 0;font-size:9.5px;color:#64748b;font-weight:600;">${escapeHTML(receiveArea ? `Funcionario (${receiveArea})` : "Funcionario Responsable")}</p>
+        <p style="margin:2px 0 0;font-size:9px;color:#94a3b8;">Fecha: ${receiveDate}</p>
+      </div>
+    </div>`;
 
   if (returnSig) {
     sigCardsHtml += `
-      <div class="pdf-sig-card">
-        <small class="pdf-sig-role">RECEPCIÓN DE DEVOLUCIÓN</small>
-        <div class="pdf-sig-box">
-          <img class="pdf-signature-drawn" src="${returnSig}" alt="Firma de recepción">
-        </div>
-        <div class="pdf-sig-info">
-          <p class="pdf-sig-name">${escapeHTML(returnName)}</p>
-          <p class="pdf-sig-sub">Devuelto a inventario</p>
-          <p class="pdf-sig-date">Fecha: ${returnDate}</p>
-        </div>
+    <div style="${sigCardStyle}">
+      <small style="${sigRoleStyle}">RECEPCIÓN DE DEVOLUCIÓN</small>
+      <div style="${sigBoxStyle}">
+        <img src="${returnSig}" style="max-height:68px;max-width:210px;object-fit:contain;display:block;" alt="Firma devolución">
       </div>
-    `;
+      <div style="${sigInfoStyle}">
+        <p style="margin:0;font-size:11px;font-weight:800;color:#0f172a;">${escapeHTML(returnName)}</p>
+        <p style="margin:2px 0 0;font-size:9.5px;color:#64748b;font-weight:600;">Devuelto a inventario</p>
+        <p style="margin:2px 0 0;font-size:9px;color:#94a3b8;">Fecha: ${returnDate}</p>
+      </div>
+    </div>`;
   }
 
-  const pdfStyles = `
-    <style>
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      body, div, p, h1, h2, small, strong { font-family: Inter, Arial, system-ui, sans-serif; }
-      .pdf-container { background: #fff; padding: 20px; max-width: 800px; color: #1e293b; }
-      .pdf-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #b5121b; padding-bottom: 14px; margin-bottom: 18px; }
-      .pdf-logo { max-width: 145px; height: auto; }
-      .pdf-header-info { text-align: right; }
-      .pdf-header-info h1 { font-size: 19px; color: #b5121b; margin-bottom: 4px; }
-      .pdf-header-info p { font-size: 11px; color: #64748b; font-weight: 600; margin-top: 2px; }
-      .pdf-section { margin-bottom: 18px; }
-      .pdf-section-title { font-size: 12.5px; font-weight: 800; color: #b5121b; text-transform: uppercase; letter-spacing: .8px; border-bottom: 1.5px solid #f1f5f9; padding-bottom: 5px; margin-bottom: 10px; }
-      .pdf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; }
-      .pdf-field small { display: block; color: #64748b; font-size: 9.5px; font-weight: 700; text-transform: uppercase; margin-bottom: 2px; }
-      .pdf-field strong { color: #0f172a; font-size: 11.5px; }
-      .pdf-full { grid-column: 1 / -1; }
-      .pdf-empty-text { font-size: 11px; color: #64748b; padding: 8px 0; }
-      .pdf-signatures-section { margin-top: 22px; }
-      .pdf-signatures-grid { display: flex; gap: 16px; justify-content: space-between; margin-top: 10px; }
-      .pdf-sig-card { flex: 1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px 10px; text-align: center; display: flex; flex-direction: column; align-items: center; min-height: 165px; justify-content: space-between; }
-      .pdf-sig-role { display: block; font-size: 9.5px; font-weight: 800; color: #475569; letter-spacing: .6px; text-transform: uppercase; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; width: 100%; }
-      .pdf-sig-box { height: 75px; display: flex; align-items: center; justify-content: center; width: 100%; margin: 4px 0; }
-      .pdf-signature-drawn { max-height: 68px; max-width: 210px; object-fit: contain; display: block; }
-      .pdf-sig-empty-line { width: 75%; border-bottom: 1.5px dashed #94a3b8; height: 40px; margin: 0 auto; }
-      .pdf-sig-info { width: 100%; border-top: 1px solid #cbd5e1; padding-top: 6px; margin-top: 4px; }
-      .pdf-sig-name { font-size: 11px; font-weight: 800; color: #0f172a; margin-bottom: 2px; }
-      .pdf-sig-sub { font-size: 9.5px; color: #64748b; font-weight: 600; margin-top: 2px; }
-      .pdf-sig-date { font-size: 9px; color: #94a3b8; margin-top: 2px; }
-      .pdf-footer { border-top: 1px solid #e2e8f0; padding-top: 10px; margin-top: 22px; text-align: center; font-size: 9.5px; color: #94a3b8; }
-    </style>
-  `;
+  // — Construir HTML completo como string (no depende del DOM para estilos) —
+  const htmlContent = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: #fff; color: #1e293b; font-size: 12px; }
+</style>
+</head>
+<body>
+<div style="max-width:800px;margin:0 auto;padding:20px;background:#fff;font-family:Arial,sans-serif;color:#1e293b;">
 
-  container.innerHTML = pdfStyles + `
-    <div class="pdf-header">
-      <img src="${LOGO_JH_DATA_URL}" class="pdf-logo" alt="Supercarnes JH">
-      <div class="pdf-header-info">
-        <h1>SUPERCARNES JH</h1>
-        <p>FICHA TÉCNICA Y CONTROL DE ACTIVO</p>
-        <p>Generado el ${new Date().toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" })}</p>
-      </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #b5121b;padding-bottom:14px;margin-bottom:18px;">
+    <img src="${LOGO_JH_DATA_URL}" style="max-width:145px;height:auto;" alt="Supercarnes JH">
+    <div style="text-align:right;">
+      <h1 style="font-size:19px;color:#b5121b;margin:0 0 4px;">SUPERCARNES JH</h1>
+      <p style="font-size:11px;color:#64748b;font-weight:600;margin:0;">FICHA TÉCNICA Y CONTROL DE ACTIVO</p>
+      <p style="font-size:11px;color:#64748b;font-weight:600;margin:2px 0 0;">Generado el ${new Date().toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" })}</p>
     </div>
+  </div>
 
-    <div class="pdf-section">
-      <h2 class="pdf-section-title">1. INFORMACIÓN GENERAL DEL EQUIPO</h2>
-      <div class="pdf-grid">
-        <div class="pdf-field"><small>Marca:</small><strong>${escapeHTML(e.marca || "—")}</strong></div>
-        <div class="pdf-field"><small>Serial / Referencia:</small><strong>${escapeHTML(e.serial || e.referencia || "—")}</strong></div>
-        <div class="pdf-field"><small>Tipo de equipo:</small><strong>${escapeHTML(e.tipo || "—")}</strong></div>
-        <div class="pdf-field"><small>Estado actual:</small><strong>${escapeHTML(e.estado || "—")}</strong></div>
-        <div class="pdf-field"><small>Disponibilidad:</small><strong>${(e.estado || "").toLowerCase() === "de baja" ? "De baja" : (e.disponible === "si" ? "Disponible" : "Asignado / No disponible")}</strong></div>
-        <div class="pdf-field"><small>Registrado por:</small><strong>${escapeHTML(e.registradoPor || e.asignadoPor || "—")}</strong></div>
-        <div class="pdf-field pdf-full"><small>Periféricos actuales:</small><strong>${escapeHTML(e.perifericos || "Ninguno")}</strong></div>
-        <div class="pdf-field pdf-full"><small>Observaciones:</small><div style="white-space:pre-wrap;margin-top:2px;color:#334155;">${escapeHTML(e.observaciones || "Sin observaciones registradas.")}</div></div>
-      </div>
+  <div style="margin-bottom:18px;">
+    <h2 style="font-size:12.5px;font-weight:800;color:#b5121b;text-transform:uppercase;letter-spacing:.8px;border-bottom:1.5px solid #f1f5f9;padding-bottom:5px;margin:0 0 10px;">1. INFORMACIÓN GENERAL DEL EQUIPO</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;">
+      <div><small style="display:block;color:#64748b;font-size:9.5px;font-weight:700;text-transform:uppercase;margin-bottom:2px;">Marca:</small><strong style="color:#0f172a;font-size:11.5px;">${escapeHTML(e.marca || "—")}</strong></div>
+      <div><small style="display:block;color:#64748b;font-size:9.5px;font-weight:700;text-transform:uppercase;margin-bottom:2px;">Serial / Referencia:</small><strong style="color:#0f172a;font-size:11.5px;">${escapeHTML(e.serial || e.referencia || "—")}</strong></div>
+      <div><small style="display:block;color:#64748b;font-size:9.5px;font-weight:700;text-transform:uppercase;margin-bottom:2px;">Tipo de equipo:</small><strong style="color:#0f172a;font-size:11.5px;">${escapeHTML(e.tipo || "—")}</strong></div>
+      <div><small style="display:block;color:#64748b;font-size:9.5px;font-weight:700;text-transform:uppercase;margin-bottom:2px;">Estado actual:</small><strong style="color:#0f172a;font-size:11.5px;">${escapeHTML(e.estado || "—")}</strong></div>
+      <div><small style="display:block;color:#64748b;font-size:9.5px;font-weight:700;text-transform:uppercase;margin-bottom:2px;">Disponibilidad:</small><strong style="color:#0f172a;font-size:11.5px;">${(e.estado || "").toLowerCase() === "de baja" ? "De baja" : (e.disponible === "si" ? "Disponible" : "Asignado / No disponible")}</strong></div>
+      <div><small style="display:block;color:#64748b;font-size:9.5px;font-weight:700;text-transform:uppercase;margin-bottom:2px;">Registrado por:</small><strong style="color:#0f172a;font-size:11.5px;">${escapeHTML(e.registradoPor || e.asignadoPor || "—")}</strong></div>
+      <div style="grid-column:1/-1;"><small style="display:block;color:#64748b;font-size:9.5px;font-weight:700;text-transform:uppercase;margin-bottom:2px;">Periféricos actuales:</small><strong style="color:#0f172a;font-size:11.5px;">${escapeHTML(e.perifericos || "Ninguno")}</strong></div>
+      <div style="grid-column:1/-1;"><small style="display:block;color:#64748b;font-size:9.5px;font-weight:700;text-transform:uppercase;margin-bottom:2px;">Observaciones:</small><div style="white-space:pre-wrap;margin-top:2px;color:#334155;font-size:11px;">${escapeHTML(e.observaciones || "Sin observaciones registradas.")}</div></div>
     </div>
+  </div>
 
-    ${assignSection}
+  ${assignSection}
 
-    <div class="pdf-section pdf-signatures-section">
-      <h2 class="pdf-section-title">3. CONSTANCIA Y FIRMAS DE CONFORMIDAD</h2>
-      <div class="pdf-signatures-grid">
-        ${sigCardsHtml}
-      </div>
+  <div style="margin-top:22px;">
+    <h2 style="font-size:12.5px;font-weight:800;color:#b5121b;text-transform:uppercase;letter-spacing:.8px;border-bottom:1.5px solid #f1f5f9;padding-bottom:5px;margin:0 0 10px;">3. CONSTANCIA Y FIRMAS DE CONFORMIDAD</h2>
+    <div style="display:flex;gap:16px;justify-content:space-between;margin-top:10px;">
+      ${sigCardsHtml}
     </div>
+  </div>
 
-    <div class="pdf-footer">
-      Supercarnes JH · Sistema de Gestión y Control de Equipos · Documento de Control Interno
-    </div>
-  `;
+  <div style="border-top:1px solid #e2e8f0;padding-top:10px;margin-top:22px;text-align:center;font-size:9.5px;color:#94a3b8;">
+    Supercarnes JH · Sistema de Gestión y Control de Equipos · Documento de Control Interno
+  </div>
 
-  container.style.position = "absolute";
-  container.style.left = "-9999px";
-  container.style.top = "0";
-  container.style.width = "800px";
-  container.style.zIndex = "9999";
-  container.style.background = "#ffffff";
-  container.style.padding = "20px";
-  container.style.fontFamily = "Inter, system-ui, sans-serif";
-  container.style.color = "#1e293b";
-  document.body.appendChild(container);
+</div>
+</body>
+</html>`;
 
   try {
     if (typeof window.html2pdf !== "undefined") {
@@ -669,19 +639,44 @@ async function downloadEquipmentPdf(id) {
         margin: [10, 10, 10, 10],
         filename: fileName,
         image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false, scrollX: 0, scrollY: 0, allowTaint: true },
+        html2canvas: { scale: 2, useCORS: true, logging: false, allowTaint: true },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
       };
-      await window.html2pdf().set(opt).from(container).save();
-      toast("PDF descargado correctamente.");
+      // Usar el string HTML directamente (evita problemas de DOM off-screen)
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(htmlContent, "text/html");
+      const body = doc.body.firstElementChild;
+      body.style.position = "fixed";
+      body.style.top = "0";
+      body.style.left = "0";
+      body.style.width = "800px";
+      body.style.zIndex = "99999";
+      body.style.background = "#ffffff";
+      document.body.appendChild(body);
+      try {
+        await window.html2pdf().set(opt).from(body).save();
+        toast("PDF descargado correctamente.");
+      } finally {
+        body.remove();
+      }
     } else {
-      fallbackPrintPdf(container, fileName);
+      // Fallback: abrir en ventana nueva para imprimir
+      const printWin = window.open("", "_blank");
+      if (!printWin) { toast("Permite ventanas emergentes para ver el PDF."); return; }
+      printWin.document.write(htmlContent);
+      printWin.document.close();
+      printWin.onload = () => { setTimeout(() => { printWin.print(); }, 400); };
+      toast("Abriendo ventana de impresión para guardar como PDF.");
     }
   } catch (err) {
-    console.error("Error al exportar con html2pdf:", err);
-    fallbackPrintPdf(container, fileName);
-  } finally {
-    container.remove();
+    console.error("Error al exportar PDF:", err);
+    // Fallback final
+    const printWin = window.open("", "_blank");
+    if (!printWin) { toast("No se pudo generar el PDF."); return; }
+    printWin.document.write(htmlContent);
+    printWin.document.close();
+    printWin.onload = () => { setTimeout(() => { printWin.print(); }, 400); };
+    toast("Abriendo ventana de impresión para guardar como PDF.");
   }
 }
 
