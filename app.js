@@ -349,6 +349,7 @@ function prepareAssignment(id) {
   clearPad("assignmentDeliverySignature");
   $("assignmentEquipmentId").value = id; $("assignmentEquipmentLabel").textContent = `${equipmentName(e)} · ${e.tipo}`;
   $("assignedDate").value = today(); $("assignedCondition").value = e.estado || "Bueno"; $("assignedPeripherals").value = e.perifericos || "";
+  $("assignmentReceivedBy").value = "";
   openDialog("assignmentDialog");
 }
 function prepareReturn(id) {

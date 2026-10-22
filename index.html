@@ -153,7 +153,15 @@
         <label>Fecha de asignación <input id="assignedDate" type="date" required></label>
         <label>Estado al asignar <select id="assignedCondition" required><option>Nuevo</option><option selected>Bueno</option><option>En Mantenimiento</option><option>De Baja</option></select></label>
         <label class="full">Periféricos entregados <textarea id="assignedPeripherals" rows="2" placeholder="Accesorios que se entregan"></textarea></label>
-        <label class="full">Entregado por <input id="assignmentReceivedBy" required placeholder="Nombre de quien entrega"></label>
+        <label class="full">Entregado por
+          <select id="assignmentReceivedBy" required>
+            <option value="" disabled selected>Seleccione responsable...</option>
+            <option value="Jeison Sanchez">Jeison Sanchez</option>
+            <option value="Jose Monterroza">Jose Monterroza</option>
+            <option value="Willinton Manco">Willinton Manco</option>
+            <option value="Jhon Vega">Jhon Vega</option>
+          </select>
+        </label>
         <div class="signature-field">
           <span class="field-label">Firma de quien entrega</span>
           <canvas id="assignmentDeliverySignature" class="signature-pad" width="700" height="160"></canvas>
