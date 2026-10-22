@@ -13,9 +13,9 @@
 <body>
   <div class="app-shell">
     <aside class="sidebar" id="sidebar">
-      <div class="brand">
-        <div class="brand-mark">JH</div>
-        <div><strong>SUPERCARNES</strong><span>GESTIÓN DE EQUIPOS</span></div>
+      <div class="brand brand-stacked">
+        <img src="Logo-JH.png" alt="Supercarnes JH" class="brand-logo-img">
+        <span class="brand-subtitle">GESTIÓN DE EQUIPOS</span>
       </div>
       <nav>
         <button class="nav-item active" data-view="dashboard"><span>▦</span> Panel general</button>
@@ -126,6 +126,9 @@
             <input type="hidden" id="peripherals" name="perifericos">
           </div>
         </div>
+        <label class="full">Observaciones
+          <textarea id="observations" rows="2" placeholder="Notas u observaciones sobre el estado o características del equipo..."></textarea>
+        </label>
         <label class="full">Registrado por
           <select id="assignedBy" required>
             <option value="" disabled selected>Seleccione responsable...</option>

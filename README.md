@@ -28,7 +28,7 @@ Como se usan módulos JavaScript, abre la carpeta mediante un servidor local (no
 
 ## 4. Estructura de Firestore
 Colección `equipos`, un documento por equipo:
-- `marca`, `tipo`, `estado`, `disponible`, `perifericos`, `asignadoPor`
+- `marca`, `tipo`, `estado`, `disponible`, `perifericos`, `observaciones`, `asignadoPor`
 - `asignaciones`: arreglo de registros de asignación, cada uno con datos de entrega y firma en base64.
 - `recepciones`: arreglo de registros de recepción, cada uno con datos de devolución y firma en base64.
 - `createdAt`, `updatedAt`: fechas de creación/actualización.

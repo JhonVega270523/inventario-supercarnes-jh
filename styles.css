@@ -30,3 +30,121 @@
 .signatures-preview-row{display:flex;gap:15px;flex-wrap:wrap;margin-top:8px}
 .sig-block{flex:1;min-width:180px}
 .sig-block small{display:block;font-size:10px;font-weight:700;color:var(--muted);margin-bottom:4px}
+
+/* Marca y Logo en Sidebar */
+.brand.brand-stacked{
+  flex-direction:column;
+  align-items:center;
+  text-align:center;
+  padding:0 6px 20px;
+  border-bottom:1px solid rgba(255,255,255,.08);
+  margin-bottom:16px;
+  gap:10px;
+}
+.brand-logo-img{
+  width:100%;
+  max-width:180px;
+  height:auto;
+  display:block;
+  margin:0 auto;
+  filter:drop-shadow(0 4px 14px rgba(0,0,0,.45));
+  transition:transform .2s ease;
+}
+.brand-logo-img:hover{
+  transform:scale(1.02);
+}
+.brand-subtitle{
+  display:inline-block;
+  font-size:9.5px;
+  font-weight:800;
+  color:#d4d7dc;
+  letter-spacing:1.5px;
+  text-transform:uppercase;
+  background:rgba(255,255,255,.07);
+  padding:4px 10px;
+  border-radius:20px;
+  border:1px solid rgba(255,255,255,.1);
+}
+
+/* Observaciones en modal de Detalle */
+.detail-notes-card{
+  background:#f8f9fa;
+  border:1px solid #e5e7eb;
+  border-radius:10px;
+  padding:14px 16px;
+  margin-top:6px;
+}
+.detail-notes-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:8px;
+}
+.detail-notes-header small{
+  color:var(--muted);
+  font-size:10.5px;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.6px;
+  margin-bottom:0 !important;
+}
+.btn-link-action{
+  background:none;
+  border:none;
+  color:var(--red);
+  font-size:11.5px;
+  font-weight:700;
+  cursor:pointer;
+  padding:2px 6px;
+  border-radius:5px;
+  transition:background .15s, color .15s;
+}
+.btn-link-action:hover{
+  background:var(--red-soft);
+  text-decoration:none;
+}
+.detail-notes-text{
+  margin:0;
+  font-size:13px;
+  line-height:1.6;
+  white-space:pre-wrap;
+  color:#242529;
+  overflow-wrap:anywhere;
+}
+.detail-notes-text.empty-notes{
+  color:var(--muted);
+  font-style:italic;
+  font-size:12.5px;
+}
+.detail-notes-edit{
+  margin-top:8px;
+}
+.detail-notes-edit textarea{
+  width:100%;
+  border:1px solid #dfe1e5;
+  border-radius:8px;
+  padding:10px 12px;
+  font-size:13px;
+  line-height:1.5;
+  resize:vertical;
+  min-height:80px;
+  outline:0;
+  background:#fff;
+  color:#26282d;
+  box-sizing:border-box;
+}
+.detail-notes-edit textarea:focus{
+  border-color:var(--red);
+  box-shadow:0 0 0 3px rgba(181,18,27,.08);
+}
+.detail-notes-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+  margin-top:10px;
+}
+.btn-sm{
+  padding:7px 13px !important;
+  font-size:11.5px !important;
+  border-radius:7px !important;
+}

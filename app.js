@@ -93,7 +93,7 @@ function renderInventory() {
   const status = $("statusFilter").value.trim().toLowerCase();
   const filtered = equipment.filter(e => {
     const a = currentAssignment(e);
-    const text = [e.marca,e.serial,e.referencia,e.tipo,e.perifericos,e.registradoPor || e.asignadoPor,a?.asignadoA,a?.area].filter(Boolean).join(" ").toLowerCase();
+    const text = [e.marca,e.serial,e.referencia,e.tipo,e.perifericos,e.observaciones,e.registradoPor || e.asignadoPor,a?.asignadoA,a?.area].filter(Boolean).join(" ").toLowerCase();
 
     let matchesAvail = true;
     if (avail === "baja") {
@@ -228,6 +228,7 @@ function resetEquipmentForm() {
   $("equipmentStatus").value = "Bueno";
   $("type").value = "";
   setPeripheralsValue("");
+  $("observations").value = "";
   $("assignedBy").value = "";
 }
 
@@ -270,6 +271,7 @@ function editEquipment(id) {
 
   $("available").value = e.disponible || "si";
   setPeripheralsValue(e.perifericos || "");
+  $("observations").value = e.observaciones || "";
 
   const regValue = e.registradoPor || e.asignadoPor || "";
   if (regValue) {
@@ -309,7 +311,19 @@ function prepareReturn(id) {
 async function saveEquipment(event) {
   event.preventDefault();
   const id = $("equipmentId").value;
-  const data = { marca:$("brand").value.trim(), serial:$("serial").value.trim(), referencia:$("serial").value.trim(), tipo:$("type").value.trim(), estado:$("equipmentStatus").value, disponible:$("available").value, perifericos:$("peripherals").value.trim(), asignadoPor:$("assignedBy").value.trim(), registradoPor:$("assignedBy").value.trim(), updatedAt:serverTimestamp() };
+  const data = {
+    marca: $("brand").value.trim(),
+    serial: $("serial").value.trim(),
+    referencia: $("serial").value.trim(),
+    tipo: $("type").value.trim(),
+    estado: $("equipmentStatus").value,
+    disponible: $("available").value,
+    perifericos: $("peripherals").value.trim(),
+    observaciones: $("observations").value.trim(),
+    asignadoPor: $("assignedBy").value.trim(),
+    registradoPor: $("assignedBy").value.trim(),
+    updatedAt: serverTimestamp()
+  };
   try {
     if (id) await updateDoc(doc(db,equipmentCollection,id), data);
     else await addDoc(collection(db,equipmentCollection), {...data, asignaciones:[], recepciones:[], createdAt:serverTimestamp()});
@@ -353,6 +367,8 @@ function showDetail(id) {
   const e = equipment.find(x => x.id === id); if (!e) return;
   $("historyTitle").textContent = `${equipmentName(e)} · ${e.tipo}`;
   const aList = e.asignaciones || [], rList = e.recepciones || [];
+  const hasObs = Boolean(e.observaciones && e.observaciones.trim());
+
   $("historyContent").innerHTML = `<div class="detail-grid">
     <div class="detail-item"><small>Marca</small><strong>${escapeHTML(e.marca)}</strong></div>
     <div class="detail-item"><small>Serial</small><strong>${escapeHTML(e.serial || e.referencia || "—")}</strong></div>
@@ -361,6 +377,22 @@ function showDetail(id) {
     <div class="detail-item"><small>Disponibilidad</small><strong>${availabilityPill(e.disponible, e.estado)}</strong></div>
     <div class="detail-item"><small>Periféricos actuales</small><strong>${escapeHTML(e.perifericos || "—")}</strong></div>
     <div class="detail-item full"><small>Registrado por</small><strong>${escapeHTML(e.registradoPor || e.asignadoPor || "—")}</strong></div>
+    <div class="detail-item full detail-notes-card">
+      <div class="detail-notes-header">
+        <small>Observaciones del equipo</small>
+        <button type="button" class="btn-link-action" id="detailNotesToggleBtn">${hasObs ? "✎ Editar observación" : "＋ Agregar observación"}</button>
+      </div>
+      <div id="detailNotesView" class="detail-notes-view">
+        <p id="detailNotesText" class="detail-notes-text ${hasObs ? 'has-notes' : 'empty-notes'}">${hasObs ? escapeHTML(e.observaciones) : "Sin observaciones registradas para este equipo."}</p>
+      </div>
+      <div id="detailNotesEdit" class="detail-notes-edit" style="display:none;">
+        <textarea id="detailNotesInput" rows="3" placeholder="Escribe aquí las observaciones o notas del equipo...">${escapeHTML(e.observaciones || "")}</textarea>
+        <div class="detail-notes-actions">
+          <button type="button" class="btn btn-outline btn-sm" id="detailNotesCancelBtn">Cancelar</button>
+          <button type="button" class="btn btn-primary btn-sm" id="detailNotesSaveBtn">Guardar observación</button>
+        </div>
+      </div>
+    </div>
   </div>
   <div class="history-block"><h3>Historial de asignaciones (${aList.length})</h3>${aList.length ? [...aList].reverse().map(a => {
     const deliveryImg = a.firmaEntrega ? `<div class="sig-block"><small>Firma de quien entrega:</small><img class="signature-preview" src="${a.firmaEntrega}" alt="Firma de quien entrega"></div>` : "";
@@ -369,7 +401,65 @@ function showDetail(id) {
     return `<div class="history-entry"><strong>${escapeHTML(a.asignadoA)}</strong> · ${escapeHTML(a.area)}<br>Fecha: ${dateText(a.fecha)} · Estado: ${escapeHTML(a.estado)}<br>Periféricos: ${escapeHTML(a.perifericos || "—")}<br>Entregado por: ${escapeHTML(a.entregadoPor || a.recibidoPor || "—")}${sigs}</div>`;
   }).join("") : '<p class="empty-history">Sin asignaciones.</p>'}</div>
   <div class="history-block"><h3>Historial de recepciones (${rList.length})</h3>${rList.length ? [...rList].reverse().map(r => `<div class="history-entry"><strong>Recibido de: ${escapeHTML(r.recibidoDe)}</strong> · ${escapeHTML(r.area)}<br>Fecha: ${dateText(r.fecha)} · Estado: ${escapeHTML(r.estado)}<br>Periféricos: ${escapeHTML(r.perifericos || "—")}${r.firma ? `<br><img class="signature-preview" src="${r.firma}" alt="Firma de recepción">` : ""}</div>`).join("") : '<p class="empty-history">Sin recepciones.</p>'}</div>`;
+
+  setupDetailNotesEvents(e);
   openDialog("historyDialog");
+}
+
+function setupDetailNotesEvents(e) {
+  const toggleBtn = $("detailNotesToggleBtn");
+  const cancelBtn = $("detailNotesCancelBtn");
+  const saveBtn = $("detailNotesSaveBtn");
+  const viewDiv = $("detailNotesView");
+  const editDiv = $("detailNotesEdit");
+  const input = $("detailNotesInput");
+  const textP = $("detailNotesText");
+
+  if (!toggleBtn || !editDiv || !viewDiv) return;
+
+  toggleBtn.onclick = () => {
+    viewDiv.style.display = "none";
+    editDiv.style.display = "block";
+    toggleBtn.style.display = "none";
+    input.value = e.observaciones || "";
+    input.focus();
+  };
+
+  cancelBtn.onclick = () => {
+    editDiv.style.display = "none";
+    viewDiv.style.display = "block";
+    toggleBtn.style.display = "";
+    input.value = e.observaciones || "";
+  };
+
+  saveBtn.onclick = async () => {
+    const newNotes = input.value.trim();
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Guardando...";
+    try {
+      if (db) {
+        await updateDoc(doc(db, equipmentCollection, e.id), {
+          observaciones: newNotes,
+          updatedAt: serverTimestamp()
+        });
+      }
+      e.observaciones = newNotes;
+      textP.textContent = newNotes || "Sin observaciones registradas para este equipo.";
+      textP.className = newNotes ? "detail-notes-text has-notes" : "detail-notes-text empty-notes";
+      toggleBtn.textContent = newNotes ? "✎ Editar observación" : "＋ Agregar observación";
+      editDiv.style.display = "none";
+      viewDiv.style.display = "block";
+      toggleBtn.style.display = "";
+      toast("Observaciones actualizadas correctamente.");
+      renderInventory();
+    } catch (err) {
+      console.error(err);
+      toast("No se pudo guardar la observación. Verifica la conexión.");
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Guardar observación";
+    }
+  };
 }
 function clearPad(id) { const c = $(id); const ctx = c.getContext("2d"); ctx.clearRect(0,0,c.width,c.height); ctx.strokeStyle="#222";ctx.lineWidth=2.2;ctx.lineCap="round"; }
 function padHasInk(id) { const c=$(id), ctx=c.getContext("2d"), d=ctx.getImageData(0,0,c.width,c.height).data; for(let i=3;i<d.length;i+=4) if(d[i]!==0)return true; return false; }
@@ -440,6 +530,7 @@ function exportToExcel() {
     "Estado",
     "Disponibilidad",
     "Periféricos",
+    "Observaciones",
     "Asignado a",
     "Área asignada",
     "Fecha de asignación",
@@ -460,6 +551,7 @@ function exportToExcel() {
         e.estado || "",
         dispText,
         e.perifericos || "",
+        e.observaciones || "",
         a?.asignadoA || "",
         a?.area || "",
         a?.fecha ? dateText(a.fecha) : "",
@@ -475,6 +567,7 @@ function exportToExcel() {
       { wch: 18 },
       { wch: 16 },
       { wch: 30 },
+      { wch: 32 },
       { wch: 26 },
       { wch: 20 },
       { wch: 18 },
@@ -497,6 +590,7 @@ function exportToExcel() {
         escapeCSV(e.estado),
         escapeCSV(dispText),
         escapeCSV(e.perifericos || ""),
+        escapeCSV(e.observaciones || ""),
         escapeCSV(a?.asignadoA || ""),
         escapeCSV(a?.area || ""),
         escapeCSV(a?.fecha || ""),
