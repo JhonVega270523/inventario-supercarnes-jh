@@ -476,7 +476,7 @@ async function downloadEquipmentPdf(id) {
   let assignSection = "";
   if (curAssign) {
     assignSection = `
-      <div style="margin-bottom:18px;">
+      <div style="margin-bottom:12px;">
         <h2 style="font-size:12.5px;font-weight:800;color:#b5121b;text-transform:uppercase;letter-spacing:.8px;border-bottom:1.5px solid #f1f5f9;padding-bottom:5px;margin:0 0 10px;">2. ASIGNACIÓN ACTUAL</h2>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;">
           <div><small style="display:block;color:#64748b;font-size:9.5px;font-weight:700;text-transform:uppercase;margin-bottom:2px;">Asignado actualmente a:</small><strong style="color:#0f172a;font-size:11.5px;">${escapeHTML(curAssign.asignadoA)}</strong></div>
@@ -489,13 +489,13 @@ async function downloadEquipmentPdf(id) {
       </div>`;
   } else if ((e.estado || "").toLowerCase() === "de baja") {
     assignSection = `
-      <div style="margin-bottom:18px;">
+      <div style="margin-bottom:12px;">
         <h2 style="font-size:12.5px;font-weight:800;color:#b5121b;text-transform:uppercase;letter-spacing:.8px;border-bottom:1.5px solid #f1f5f9;padding-bottom:5px;margin:0 0 10px;">2. ASIGNACIÓN ACTUAL</h2>
         <p style="font-size:11px;color:#64748b;padding:8px 0;">El equipo se encuentra actualmente dado de baja.</p>
       </div>`;
   } else {
     assignSection = `
-      <div style="margin-bottom:18px;">
+      <div style="margin-bottom:12px;">
         <h2 style="font-size:12.5px;font-weight:800;color:#b5121b;text-transform:uppercase;letter-spacing:.8px;border-bottom:1.5px solid #f1f5f9;padding-bottom:5px;margin:0 0 10px;">2. ASIGNACIÓN ACTUAL</h2>
         <p style="font-size:11px;color:#64748b;padding:8px 0;">El equipo no se encuentra asignado (Disponible en inventario).</p>
       </div>`;
@@ -536,16 +536,16 @@ async function downloadEquipmentPdf(id) {
     }
   }
 
-  const sigCardStyle = "flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px 10px;text-align:center;display:flex;flex-direction:column;align-items:center;min-height:165px;justify-content:space-between;";
-  const sigRoleStyle = "display:block;font-size:9.5px;font-weight:800;color:#475569;letter-spacing:.6px;text-transform:uppercase;margin-bottom:6px;border-bottom:1px solid #e2e8f0;padding-bottom:4px;width:100%;";
-  const sigBoxStyle = "height:75px;display:flex;align-items:center;justify-content:center;width:100%;margin:4px 0;";
-  const sigInfoStyle = "width:100%;border-top:1px solid #cbd5e1;padding-top:6px;margin-top:4px;";
+  const sigCardStyle = "flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:7px 10px 6px;text-align:center;display:flex;flex-direction:column;align-items:center;min-height:112px;justify-content:space-between;break-inside:avoid;page-break-inside:avoid;";
+  const sigRoleStyle = "display:block;font-size:9px;font-weight:800;color:#475569;letter-spacing:.6px;text-transform:uppercase;margin-bottom:3px;border-bottom:1px solid #e2e8f0;padding-bottom:3px;width:100%;";
+  const sigBoxStyle = "height:44px;display:flex;align-items:center;justify-content:center;width:100%;margin:2px 0;";
+  const sigInfoStyle = "width:100%;border-top:1px solid #cbd5e1;padding-top:4px;margin-top:2px;";
 
   let sigCardsHtml = `
     <div style="${sigCardStyle}">
       <small style="${sigRoleStyle}">ENTREGADO POR (SISTEMAS / TI)</small>
       <div style="${sigBoxStyle}">
-        ${deliverySig ? `<img src="${deliverySig}" style="max-height:68px;max-width:210px;object-fit:contain;display:block;" alt="Firma entrega">` : `<div style="width:75%;border-bottom:1.5px dashed #94a3b8;height:40px;margin:0 auto;"></div>`}
+        ${deliverySig ? `<img src="${deliverySig}" style="max-height:40px;max-width:210px;object-fit:contain;display:block;" alt="Firma entrega">` : `<div style="width:75%;border-bottom:1.5px dashed #94a3b8;height:28px;margin:0 auto;"></div>`}
       </div>
       <div style="${sigInfoStyle}">
         <p style="margin:0;font-size:11px;font-weight:800;color:#0f172a;">${escapeHTML(deliveryName)}</p>
@@ -556,7 +556,7 @@ async function downloadEquipmentPdf(id) {
     <div style="${sigCardStyle}">
       <small style="${sigRoleStyle}">RECIBIDO A CONFORMIDAD</small>
       <div style="${sigBoxStyle}">
-        ${receiveSig ? `<img src="${receiveSig}" style="max-height:68px;max-width:210px;object-fit:contain;display:block;" alt="Firma recibe">` : `<div style="width:75%;border-bottom:1.5px dashed #94a3b8;height:40px;margin:0 auto;"></div>`}
+        ${receiveSig ? `<img src="${receiveSig}" style="max-height:40px;max-width:210px;object-fit:contain;display:block;" alt="Firma recibe">` : `<div style="width:75%;border-bottom:1.5px dashed #94a3b8;height:28px;margin:0 auto;"></div>`}
       </div>
       <div style="${sigInfoStyle}">
         <p style="margin:0;font-size:11px;font-weight:800;color:#0f172a;">${escapeHTML(receiveName)}</p>
@@ -570,7 +570,7 @@ async function downloadEquipmentPdf(id) {
     <div style="${sigCardStyle}">
       <small style="${sigRoleStyle}">RECEPCIÓN DE DEVOLUCIÓN</small>
       <div style="${sigBoxStyle}">
-        <img src="${returnSig}" style="max-height:68px;max-width:210px;object-fit:contain;display:block;" alt="Firma devolución">
+        <img src="${returnSig}" style="max-height:40px;max-width:210px;object-fit:contain;display:block;" alt="Firma devolución">
       </div>
       <div style="${sigInfoStyle}">
         <p style="margin:0;font-size:11px;font-weight:800;color:#0f172a;">${escapeHTML(returnName)}</p>
@@ -591,9 +591,9 @@ async function downloadEquipmentPdf(id) {
 </style>
 </head>
 <body>
-<div style="max-width:800px;margin:0 auto;padding:20px;background:#fff;font-family:Arial,sans-serif;color:#1e293b;">
+<div style="max-width:800px;margin:0 auto;padding:14px 20px;background:#fff;font-family:Arial,sans-serif;color:#1e293b;">
 
-  <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #b5121b;padding-bottom:14px;margin-bottom:18px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #b5121b;padding-bottom:12px;margin-bottom:12px;">
     <img src="${LOGO_JH_DATA_URL}" style="max-width:145px;height:auto;" alt="Supercarnes JH">
     <div style="text-align:right;">
       <h1 style="font-size:19px;color:#b5121b;margin:0 0 4px;">SUPERCARNES JH</h1>
@@ -602,7 +602,9 @@ async function downloadEquipmentPdf(id) {
     </div>
   </div>
 
-  <div style="margin-bottom:18px;">
+  <p style="font-size:11px;line-height:1.5;margin:0 0 10px;color:#334155;">Por medio de este escrito hago constar que se me hace entrega del o los siguientes equipos y herramientas de trabajo:</p>
+
+  <div style="margin-bottom:12px;">
     <h2 style="font-size:12.5px;font-weight:800;color:#b5121b;text-transform:uppercase;letter-spacing:.8px;border-bottom:1.5px solid #f1f5f9;padding-bottom:5px;margin:0 0 10px;">1. INFORMACIÓN GENERAL DEL EQUIPO</h2>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;">
       <div><small style="display:block;color:#64748b;font-size:9.5px;font-weight:700;text-transform:uppercase;margin-bottom:2px;">Marca:</small><strong style="color:#0f172a;font-size:11.5px;">${escapeHTML(e.marca || "—")}</strong></div>
@@ -618,14 +620,26 @@ async function downloadEquipmentPdf(id) {
 
   ${assignSection}
 
-  <div style="margin-top:22px;">
-    <h2 style="font-size:12.5px;font-weight:800;color:#b5121b;text-transform:uppercase;letter-spacing:.8px;border-bottom:1.5px solid #f1f5f9;padding-bottom:5px;margin:0 0 10px;">3. CONSTANCIA Y FIRMAS DE CONFORMIDAD</h2>
-    <div style="display:flex;gap:16px;justify-content:space-between;margin-top:10px;">
+  <div style="margin-bottom:10px;">
+    <h2 style="font-size:12.5px;font-weight:800;color:#b5121b;text-transform:uppercase;letter-spacing:.8px;border-bottom:1.5px solid #f1f5f9;padding-bottom:5px;margin:0 0 10px;">3. MANIFESTACIÓN DEL COLABORADOR</h2>
+    <p style="font-size:11px;line-height:1.5;margin:0 0 8px;color:#334155;">El colaborador manifiesta por medio de este documento que:</p>
+    <ol style="font-size:10.5px;line-height:1.5;padding-left:22px;color:#334155;">
+      <li style="margin-bottom:5px;">Recibió el o los equipos y herramientas de trabajo anteriormente descritos, en buen estado físico y técnico por parte de la empresa.</li>
+      <li style="margin-bottom:5px;">Se compromete a cuidar y hacer buen uso del o los equipos de trabajo entregados por la empresa.</li>
+      <li style="margin-bottom:5px;">Se compromete a usar el o los equipos de trabajo exclusivamente para el desarrollo de sus actividades o funciones laborales. En caso de utilizar los equipos para fines distintos a los laborales, estará incumpliendo con el reglamento interno de trabajo de la empresa.</li>
+      <li style="margin-bottom:5px;">Será responsable de la pérdida y/o daños sin justificación ocasionados por el mal uso o descuido de los equipos y herramientas de trabajo. Por consiguiente, autoriza a la empresa a descontar de su salario el valor del o los equipos y herramientas de trabajo que por su culpa (sin justificación) se hayan dañado o perdido.</li>
+      <li>Los equipos y herramientas de trabajo anteriormente descritos son de propiedad de la compañía. Por consiguiente, en caso de terminación del contrato de trabajo, me comprometo a devolverlos íntegramente y en buen estado.</li>
+    </ol>
+  </div>
+
+  <div style="margin-top:10px;break-inside:avoid;page-break-inside:avoid;">
+    <h2 style="font-size:12.5px;font-weight:800;color:#b5121b;text-transform:uppercase;letter-spacing:.8px;border-bottom:1.5px solid #f1f5f9;padding-bottom:5px;margin:0 0 10px;">4. CONSTANCIA Y FIRMAS DE CONFORMIDAD</h2>
+    <div style="display:flex;gap:12px;justify-content:space-between;margin-top:6px;break-inside:avoid;page-break-inside:avoid;">
       ${sigCardsHtml}
     </div>
   </div>
 
-  <div style="border-top:1px solid #e2e8f0;padding-top:10px;margin-top:22px;text-align:center;font-size:9.5px;color:#94a3b8;">
+  <div style="border-top:1px solid #e2e8f0;padding-top:6px;margin-top:10px;text-align:center;font-size:9.5px;color:#94a3b8;">
     Supercarnes JH · Sistema de Gestión y Control de Equipos · Documento de Control Interno
   </div>
 
@@ -636,7 +650,7 @@ async function downloadEquipmentPdf(id) {
   try {
     if (typeof window.html2pdf !== "undefined") {
       const opt = {
-        margin: [10, 10, 10, 10],
+        margin: [4, 10, 10, 10],
         filename: fileName,
         image: { type: "jpeg", quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, logging: false },
