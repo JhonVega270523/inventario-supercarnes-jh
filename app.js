@@ -509,18 +509,37 @@ async function downloadEquipmentPdf(id) {
   const activeAssign = curAssign || (aList.length ? aList[aList.length - 1] : null);
   const activeReturn = latestReturn(e);
 
+  let deliverySig = activeAssign?.firmaEntrega || "";
+  let receiveSig = activeAssign?.firmaRecibe || activeAssign?.firma || "";
+
+  if (!deliverySig && aList.length) {
+    const foundD = aList.slice().reverse().find(x => x.firmaEntrega);
+    if (foundD) deliverySig = foundD.firmaEntrega;
+  }
+  if (!receiveSig && aList.length) {
+    const foundR = aList.slice().reverse().find(x => x.firmaRecibe || x.firma);
+    if (foundR) receiveSig = foundR.firmaRecibe || foundR.firma;
+  }
+
   const deliveryName = activeAssign?.entregadoPor || activeAssign?.recibidoPor || e.registradoPor || e.asignadoPor || "Responsable de Entrega";
-  const deliverySig = activeAssign?.firmaEntrega || "";
   const deliveryDate = activeAssign?.fecha ? dateText(activeAssign.fecha) : today();
 
   const receiveName = activeAssign?.asignadoA || (activeReturn ? activeReturn.recibidoDe : "Funcionario Responsable");
-  const receiveSig = activeAssign ? (activeAssign.firmaRecibe || activeAssign.firma || "") : "";
   const receiveArea = activeAssign?.area || (activeReturn?.area || "");
   const receiveDate = activeAssign?.fecha ? dateText(activeAssign.fecha) : today();
 
-  const returnName = activeReturn?.recibidoDe || "";
-  const returnSig = activeReturn?.firma || "";
-  const returnDate = activeReturn?.fecha ? dateText(activeReturn.fecha) : "";
+  let returnName = activeReturn?.recibidoDe || "";
+  let returnSig = activeReturn?.firma || "";
+  let returnDate = activeReturn?.fecha ? dateText(activeReturn.fecha) : "";
+
+  if (!returnSig && rList.length) {
+    const foundRet = rList.slice().reverse().find(x => x.firma);
+    if (foundRet) {
+      returnSig = foundRet.firma;
+      returnName = foundRet.recibidoDe || returnName;
+      returnDate = foundRet.fecha ? dateText(foundRet.fecha) : returnDate;
+    }
+  }
 
   let sigCardsHtml = `
     <div class="pdf-sig-card">
@@ -601,23 +620,32 @@ async function downloadEquipmentPdf(id) {
     </div>
   `;
 
-  if (typeof window.html2pdf !== "undefined") {
-    const opt = {
-      margin: [10, 10, 10, 10],
-      filename: fileName,
-      image: { type: "jpeg", quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, logging: false },
-      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
-    };
-    try {
+  container.style.position = "fixed";
+  container.style.left = "-9999px";
+  container.style.top = "0";
+  container.style.width = "800px";
+  container.style.zIndex = "-1";
+  document.body.appendChild(container);
+
+  try {
+    if (typeof window.html2pdf !== "undefined") {
+      const opt = {
+        margin: [10, 10, 10, 10],
+        filename: fileName,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
+      };
       await window.html2pdf().set(opt).from(container).save();
       toast("PDF descargado correctamente.");
-    } catch (err) {
-      console.error("Error al exportar con html2pdf:", err);
+    } else {
       fallbackPrintPdf(container, fileName);
     }
-  } else {
+  } catch (err) {
+    console.error("Error al exportar con html2pdf:", err);
     fallbackPrintPdf(container, fileName);
+  } finally {
+    container.remove();
   }
 }
 
@@ -633,9 +661,32 @@ function fallbackPrintPdf(container, fileName) {
     <head>
       <meta charset="UTF-8">
       <title>${escapeHTML(fileName)}</title>
-      <link rel="stylesheet" href="styles.css">
       <style>
-        body { background: white; margin: 0; padding: 20px; }
+        body { font-family: Inter, system-ui, sans-serif; background: white; margin: 0; padding: 20px; color: #1e293b; }
+        .pdf-container { max-width: 800px; margin: 0 auto; }
+        .pdf-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #b5121b; padding-bottom: 14px; margin-bottom: 18px; }
+        .pdf-logo { max-width: 145px; height: auto; }
+        .pdf-header-info { text-align: right; }
+        .pdf-header-info h1 { margin: 0 0 4px; font-size: 19px; color: #b5121b; }
+        .pdf-header-info p { margin: 0; font-size: 11px; color: #64748b; font-weight: 600; }
+        .pdf-section { margin-bottom: 18px; page-break-inside: avoid; }
+        .pdf-section-title { font-size: 12.5px; font-weight: 800; color: #b5121b; text-transform: uppercase; letter-spacing: .8px; border-bottom: 1.5px solid #f1f5f9; padding-bottom: 5px; margin: 0 0 10px; }
+        .pdf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; }
+        .pdf-field small { display: block; color: #64748b; font-size: 9.5px; font-weight: 700; text-transform: uppercase; margin-bottom: 2px; }
+        .pdf-field strong { color: #0f172a; font-size: 11.5px; }
+        .pdf-full { grid-column: 1 / -1; }
+        .pdf-signatures-section { margin-top: 22px; page-break-inside: avoid; }
+        .pdf-signatures-grid { display: flex; gap: 16px; justify-content: space-between; margin-top: 10px; }
+        .pdf-sig-card { flex: 1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px 10px; text-align: center; display: flex; flex-direction: column; align-items: center; min-height: 165px; justify-content: space-between; box-sizing: border-box; }
+        .pdf-sig-role { display: block; font-size: 9.5px; font-weight: 800; color: #475569; letter-spacing: .6px; text-transform: uppercase; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; width: 100%; }
+        .pdf-sig-box { height: 75px; display: flex; align-items: center; justify-content: center; width: 100%; margin: 4px 0; }
+        .pdf-signature-drawn { max-height: 68px; max-width: 210px; object-fit: contain; display: block; }
+        .pdf-sig-empty-line { width: 75%; border-bottom: 1.5px dashed #94a3b8; height: 40px; margin: 0 auto; }
+        .pdf-sig-info { width: 100%; border-top: 1px solid #cbd5e1; padding-top: 6px; margin-top: 4px; }
+        .pdf-sig-name { margin: 0; font-size: 11px; font-weight: 800; color: #0f172a; }
+        .pdf-sig-sub { margin: 2px 0 0; font-size: 9.5px; color: #64748b; font-weight: 600; }
+        .pdf-sig-date { margin: 2px 0 0; font-size: 9px; color: #94a3b8; }
+        .pdf-footer { border-top: 1px solid #e2e8f0; padding-top: 10px; margin-top: 22px; text-align: center; font-size: 9.5px; color: #94a3b8; }
         @media print {
           body { padding: 0; }
           @page { margin: 10mm; }
