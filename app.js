@@ -506,62 +506,62 @@ async function downloadEquipmentPdf(id) {
     `;
   }
 
-  const aListHtml = aList.length ? `
-    <table class="pdf-table">
-      <thead>
-        <tr>
-          <th>Fecha</th>
-          <th>Asignado a</th>
-          <th>Área</th>
-          <th>Estado</th>
-          <th>Periféricos</th>
-          <th>Entregado por</th>
-          <th>Firmas</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${[...aList].reverse().map(a => {
-          const dSig = a.firmaEntrega ? `<div><small>Entrega:</small><img class="pdf-sig-img" src="${a.firmaEntrega}" alt="Firma"></div>` : "";
-          const rSig = (a.firmaRecibe || a.firma) ? `<div><small>Recibe:</small><img class="pdf-sig-img" src="${a.firmaRecibe || a.firma}" alt="Firma"></div>` : "";
-          const sigs = (dSig || rSig) ? `${dSig}${rSig}` : "—";
-          return `<tr>
-            <td>${dateText(a.fecha)}</td>
-            <td><strong>${escapeHTML(a.asignadoA)}</strong></td>
-            <td>${escapeHTML(a.area)}</td>
-            <td>${escapeHTML(a.estado)}</td>
-            <td>${escapeHTML(a.perifericos || "—")}</td>
-            <td>${escapeHTML(a.entregadoPor || a.recibidoPor || "—")}</td>
-            <td>${sigs}</td>
-          </tr>`;
-        }).join("")}
-      </tbody>
-    </table>
-  ` : '<p class="pdf-empty-text">Sin asignaciones registradas.</p>';
+  const activeAssign = curAssign || (aList.length ? aList[aList.length - 1] : null);
+  const activeReturn = latestReturn(e);
 
-  const rListHtml = rList.length ? `
-    <table class="pdf-table">
-      <thead>
-        <tr>
-          <th>Fecha</th>
-          <th>Recibido de</th>
-          <th>Área</th>
-          <th>Estado recibido</th>
-          <th>Periféricos</th>
-          <th>Firma</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${[...rList].reverse().map(r => `<tr>
-          <td>${dateText(r.fecha)}</td>
-          <td><strong>${escapeHTML(r.recibidoDe)}</strong></td>
-          <td>${escapeHTML(r.area)}</td>
-          <td>${escapeHTML(r.estado)}</td>
-          <td>${escapeHTML(r.perifericos || "—")}</td>
-          <td>${r.firma ? `<img class="pdf-sig-img" src="${r.firma}" alt="Firma">` : "—"}</td>
-        </tr>`).join("")}
-      </tbody>
-    </table>
-  ` : '<p class="pdf-empty-text">Sin recepciones registradas.</p>';
+  const deliveryName = activeAssign?.entregadoPor || activeAssign?.recibidoPor || e.registradoPor || e.asignadoPor || "Responsable de Entrega";
+  const deliverySig = activeAssign?.firmaEntrega || "";
+  const deliveryDate = activeAssign?.fecha ? dateText(activeAssign.fecha) : today();
+
+  const receiveName = activeAssign?.asignadoA || (activeReturn ? activeReturn.recibidoDe : "Funcionario Responsable");
+  const receiveSig = activeAssign ? (activeAssign.firmaRecibe || activeAssign.firma || "") : "";
+  const receiveArea = activeAssign?.area || (activeReturn?.area || "");
+  const receiveDate = activeAssign?.fecha ? dateText(activeAssign.fecha) : today();
+
+  const returnName = activeReturn?.recibidoDe || "";
+  const returnSig = activeReturn?.firma || "";
+  const returnDate = activeReturn?.fecha ? dateText(activeReturn.fecha) : "";
+
+  let sigCardsHtml = `
+    <div class="pdf-sig-card">
+      <small class="pdf-sig-role">ENTREGADO POR (SISTEMAS / TI)</small>
+      <div class="pdf-sig-box">
+        ${deliverySig ? `<img class="pdf-signature-drawn" src="${deliverySig}" alt="Firma de entrega">` : `<div class="pdf-sig-empty-line"></div>`}
+      </div>
+      <div class="pdf-sig-info">
+        <p class="pdf-sig-name">${escapeHTML(deliveryName)}</p>
+        <p class="pdf-sig-sub">Área de Sistemas / Soporte</p>
+        <p class="pdf-sig-date">Fecha: ${deliveryDate}</p>
+      </div>
+    </div>
+    <div class="pdf-sig-card">
+      <small class="pdf-sig-role">RECIBIDO A CONFORMIDAD</small>
+      <div class="pdf-sig-box">
+        ${receiveSig ? `<img class="pdf-signature-drawn" src="${receiveSig}" alt="Firma de quien recibe">` : `<div class="pdf-sig-empty-line"></div>`}
+      </div>
+      <div class="pdf-sig-info">
+        <p class="pdf-sig-name">${escapeHTML(receiveName)}</p>
+        <p class="pdf-sig-sub">${escapeHTML(receiveArea ? `Funcionario (${receiveArea})` : "Funcionario Responsable")}</p>
+        <p class="pdf-sig-date">Fecha: ${receiveDate}</p>
+      </div>
+    </div>
+  `;
+
+  if (returnSig) {
+    sigCardsHtml += `
+      <div class="pdf-sig-card">
+        <small class="pdf-sig-role">RECEPCIÓN DE DEVOLUCIÓN</small>
+        <div class="pdf-sig-box">
+          <img class="pdf-signature-drawn" src="${returnSig}" alt="Firma de recepción">
+        </div>
+        <div class="pdf-sig-info">
+          <p class="pdf-sig-name">${escapeHTML(returnName)}</p>
+          <p class="pdf-sig-sub">Devuelto a inventario</p>
+          <p class="pdf-sig-date">Fecha: ${returnDate}</p>
+        </div>
+      </div>
+    `;
+  }
 
   container.innerHTML = `
     <div class="pdf-header">
@@ -589,14 +589,11 @@ async function downloadEquipmentPdf(id) {
 
     ${assignSection}
 
-    <div class="pdf-section">
-      <h2 class="pdf-section-title">3. HISTORIAL DE ASIGNACIONES (${aList.length})</h2>
-      ${aListHtml}
-    </div>
-
-    <div class="pdf-section">
-      <h2 class="pdf-section-title">4. HISTORIAL DE RECEPCIONES (${rList.length})</h2>
-      ${rListHtml}
+    <div class="pdf-section pdf-signatures-section">
+      <h2 class="pdf-section-title">3. CONSTANCIA Y FIRMAS DE CONFORMIDAD</h2>
+      <div class="pdf-signatures-grid">
+        ${sigCardsHtml}
+      </div>
     </div>
 
     <div class="pdf-footer">

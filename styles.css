@@ -402,3 +402,84 @@
   font-size:9.5px;
   color:#94a3b8;
 }
+
+/* Firmas destacadas en PDF */
+.pdf-signatures-section{
+  margin-top:22px;
+  page-break-inside:avoid;
+}
+.pdf-signatures-grid{
+  display:flex;
+  gap:16px;
+  justify-content:space-between;
+  margin-top:10px;
+}
+.pdf-sig-card{
+  flex:1;
+  background:#f8fafc;
+  border:1px solid #e2e8f0;
+  border-radius:8px;
+  padding:12px 14px 10px;
+  text-align:center;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  min-height:165px;
+  justify-content:space-between;
+  box-sizing:border-box;
+}
+.pdf-sig-role{
+  display:block;
+  font-size:9.5px;
+  font-weight:800;
+  color:#475569;
+  letter-spacing:.6px;
+  text-transform:uppercase;
+  margin-bottom:6px;
+  border-bottom:1px solid #e2e8f0;
+  padding-bottom:4px;
+  width:100%;
+}
+.pdf-sig-box{
+  height:75px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+  margin:4px 0;
+}
+.pdf-signature-drawn{
+  max-height:68px;
+  max-width:210px;
+  object-fit:contain;
+  display:block;
+}
+.pdf-sig-empty-line{
+  width:75%;
+  border-bottom:1.5px dashed #94a3b8;
+  height:40px;
+  margin:0 auto;
+}
+.pdf-sig-info{
+  width:100%;
+  border-top:1px solid #cbd5e1;
+  padding-top:6px;
+  margin-top:4px;
+}
+.pdf-sig-name{
+  margin:0;
+  font-size:11px;
+  font-weight:800;
+  color:#0f172a;
+}
+.pdf-sig-sub{
+  margin:2px 0 0;
+  font-size:9.5px;
+  color:#64748b;
+  font-weight:600;
+}
+.pdf-sig-date{
+  margin:2px 0 0;
+  font-size:9px;
+  color:#94a3b8;
+}
