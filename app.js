@@ -582,7 +582,39 @@ async function downloadEquipmentPdf(id) {
     `;
   }
 
-  container.innerHTML = `
+  const pdfStyles = `
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body, div, p, h1, h2, small, strong { font-family: Inter, Arial, system-ui, sans-serif; }
+      .pdf-container { background: #fff; padding: 20px; max-width: 800px; color: #1e293b; }
+      .pdf-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #b5121b; padding-bottom: 14px; margin-bottom: 18px; }
+      .pdf-logo { max-width: 145px; height: auto; }
+      .pdf-header-info { text-align: right; }
+      .pdf-header-info h1 { font-size: 19px; color: #b5121b; margin-bottom: 4px; }
+      .pdf-header-info p { font-size: 11px; color: #64748b; font-weight: 600; margin-top: 2px; }
+      .pdf-section { margin-bottom: 18px; }
+      .pdf-section-title { font-size: 12.5px; font-weight: 800; color: #b5121b; text-transform: uppercase; letter-spacing: .8px; border-bottom: 1.5px solid #f1f5f9; padding-bottom: 5px; margin-bottom: 10px; }
+      .pdf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; }
+      .pdf-field small { display: block; color: #64748b; font-size: 9.5px; font-weight: 700; text-transform: uppercase; margin-bottom: 2px; }
+      .pdf-field strong { color: #0f172a; font-size: 11.5px; }
+      .pdf-full { grid-column: 1 / -1; }
+      .pdf-empty-text { font-size: 11px; color: #64748b; padding: 8px 0; }
+      .pdf-signatures-section { margin-top: 22px; }
+      .pdf-signatures-grid { display: flex; gap: 16px; justify-content: space-between; margin-top: 10px; }
+      .pdf-sig-card { flex: 1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px 10px; text-align: center; display: flex; flex-direction: column; align-items: center; min-height: 165px; justify-content: space-between; }
+      .pdf-sig-role { display: block; font-size: 9.5px; font-weight: 800; color: #475569; letter-spacing: .6px; text-transform: uppercase; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; width: 100%; }
+      .pdf-sig-box { height: 75px; display: flex; align-items: center; justify-content: center; width: 100%; margin: 4px 0; }
+      .pdf-signature-drawn { max-height: 68px; max-width: 210px; object-fit: contain; display: block; }
+      .pdf-sig-empty-line { width: 75%; border-bottom: 1.5px dashed #94a3b8; height: 40px; margin: 0 auto; }
+      .pdf-sig-info { width: 100%; border-top: 1px solid #cbd5e1; padding-top: 6px; margin-top: 4px; }
+      .pdf-sig-name { font-size: 11px; font-weight: 800; color: #0f172a; margin-bottom: 2px; }
+      .pdf-sig-sub { font-size: 9.5px; color: #64748b; font-weight: 600; margin-top: 2px; }
+      .pdf-sig-date { font-size: 9px; color: #94a3b8; margin-top: 2px; }
+      .pdf-footer { border-top: 1px solid #e2e8f0; padding-top: 10px; margin-top: 22px; text-align: center; font-size: 9.5px; color: #94a3b8; }
+    </style>
+  `;
+
+  container.innerHTML = pdfStyles + `
     <div class="pdf-header">
       <img src="${LOGO_JH_DATA_URL}" class="pdf-logo" alt="Supercarnes JH">
       <div class="pdf-header-info">
@@ -620,11 +652,15 @@ async function downloadEquipmentPdf(id) {
     </div>
   `;
 
-  container.style.position = "fixed";
+  container.style.position = "absolute";
   container.style.left = "-9999px";
   container.style.top = "0";
   container.style.width = "800px";
-  container.style.zIndex = "-1";
+  container.style.zIndex = "9999";
+  container.style.background = "#ffffff";
+  container.style.padding = "20px";
+  container.style.fontFamily = "Inter, system-ui, sans-serif";
+  container.style.color = "#1e293b";
   document.body.appendChild(container);
 
   try {
@@ -633,7 +669,7 @@ async function downloadEquipmentPdf(id) {
         margin: [10, 10, 10, 10],
         filename: fileName,
         image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
+        html2canvas: { scale: 2, useCORS: true, logging: false, scrollX: 0, scrollY: 0, allowTaint: true },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
       };
       await window.html2pdf().set(opt).from(container).save();
