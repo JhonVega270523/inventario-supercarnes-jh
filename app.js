@@ -639,28 +639,24 @@ async function downloadEquipmentPdf(id) {
         margin: [10, 10, 10, 10],
         filename: fileName,
         image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false, allowTaint: true },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
       };
-      // Usar el string HTML directamente (evita problemas de DOM off-screen)
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(htmlContent, "text/html");
-      const body = doc.body.firstElementChild;
-      body.style.position = "fixed";
-      body.style.top = "0";
-      body.style.left = "0";
-      body.style.width = "800px";
-      body.style.zIndex = "99999";
-      body.style.background = "#ffffff";
-      document.body.appendChild(body);
+
+      // html2canvas no captura de forma fiable elementos ubicados fuera del viewport.
+      const wrapper = document.createElement("div");
+      wrapper.style.cssText = "position:fixed;top:0;left:0;width:800px;background:#fff;z-index:2147483647;pointer-events:none;";
+      wrapper.innerHTML = htmlContent;
+      document.body.appendChild(wrapper);
+
+      const target = wrapper.querySelector("div") || wrapper;
       try {
-        await window.html2pdf().set(opt).from(body).save();
+        await window.html2pdf().set(opt).from(target).save();
         toast("PDF descargado correctamente.");
       } finally {
-        body.remove();
+        wrapper.remove();
       }
     } else {
-      // Fallback: abrir en ventana nueva para imprimir
       const printWin = window.open("", "_blank");
       if (!printWin) { toast("Permite ventanas emergentes para ver el PDF."); return; }
       printWin.document.write(htmlContent);
@@ -670,7 +666,6 @@ async function downloadEquipmentPdf(id) {
     }
   } catch (err) {
     console.error("Error al exportar PDF:", err);
-    // Fallback final
     const printWin = window.open("", "_blank");
     if (!printWin) { toast("No se pudo generar el PDF."); return; }
     printWin.document.write(htmlContent);
