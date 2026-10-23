@@ -599,7 +599,7 @@ function showDetail(id) {
   const hasObs = Boolean(e.observaciones && e.observaciones.trim());
   const photos = getEquipmentPhotos(e);
 
-  $("historyContent").innerHTML = `${photos.length ? `<div class="equipment-detail-photos photos-${photos.length}">${photos.map((photo, index) => `<div class="equipment-detail-photo"><img src="${escapeHTML(photo)}" alt="Foto ${index + 1} de ${escapeHTML(e.marca || "equipo")}"></div>`).join("")}</div>` : ""}<div class="detail-grid">
+  $("historyContent").innerHTML = `${photos.length ? `<div class="equipment-detail-photos photos-${photos.length}">${photos.map((photo, index) => `<button type="button" class="equipment-detail-photo" data-view-equipment-photo="${index}" aria-label="Ampliar foto ${index + 1}"><img src="${escapeHTML(photo)}" alt="Foto ${index + 1} de ${escapeHTML(e.marca || "equipo")}"></button>`).join("")}</div>` : ""}<div class="detail-grid">
     <div class="detail-item"><small>Marca</small><strong>${escapeHTML(e.marca)}</strong></div>
     <div class="detail-item"><small>Serial</small><strong>${escapeHTML(e.serial || e.referencia || "—")}</strong></div>
     <div class="detail-item"><small>Tipo</small><strong>${escapeHTML(e.tipo)}</strong></div>
@@ -1187,6 +1187,19 @@ document.querySelectorAll("dialog").forEach(dialog => {
   });
 });
 document.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click",()=>closeDialog(b.dataset.close)));
+$("historyContent").addEventListener("click", event => {
+  const photoButton = event.target.closest("[data-view-equipment-photo]");
+  if (!photoButton) return;
+  const photo = photoButton.querySelector("img");
+  const viewer = $("equipmentPhotoViewer");
+  const viewerImage = $("equipmentPhotoViewerImage");
+  viewerImage.src = photo.src;
+  viewerImage.alt = photo.alt;
+  viewer.showModal();
+});
+$("equipmentPhotoViewer").addEventListener("close", () => {
+  $("equipmentPhotoViewerImage").removeAttribute("src");
+});
 document.querySelectorAll("[data-clear]").forEach(b=>b.addEventListener("click",()=>clearPad(b.dataset.clear)));
 $("confirmationCancelBtn").addEventListener("click", () => closeDialog("confirmationDialog"));
 $("confirmationAcceptBtn").addEventListener("click", () => {
