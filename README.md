@@ -13,7 +13,7 @@ Aplicación responsive en HTML, CSS y JavaScript con Cloud Firestore. Incluye:
 - Búsqueda, filtros y panel de indicadores.
 - Paginación de 20 registros en inventario, asignaciones y recepciones, con control para volver al inicio de la página.
 - Columna dedicada de serial en todas las tablas del sistema.
-- Exportación general a Excel y descarga de ficha técnica del activo en PDF con firmas e historial completo.
+- Exportación general a Excel con título y encabezados en color, filas con bordes y bandas alternas, filtros y encabezados inmovilizados; descarga de ficha técnica del activo en PDF con firmas e historial completo.
 - Diseño adaptado a celular, tablet y computador con botones de acción optimizados (iconos de color en móvil).
 - Sincronización automática en tiempo real entre los dispositivos conectados a Firestore.
 

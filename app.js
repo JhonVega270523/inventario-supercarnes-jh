@@ -1056,6 +1056,136 @@ async function deleteEquipment(id, button) {
   }
 }
 
+function xmlEscape(value) {
+  return String(value ?? "")
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function createExcelFile(headers, rows, title, subtitle) {
+  const columnName = index => {
+    let name = "";
+    for (let value = index + 1; value > 0; value = Math.floor((value - 1) / 26)) {
+      name = String.fromCharCode(65 + (value - 1) % 26) + name;
+    }
+    return name;
+  };
+  const cellXml = (reference, value, style) =>
+    `<c r="${reference}" s="${style}" t="inlineStr"><is><t xml:space="preserve">${xmlEscape(value)}</t></is></c>`;
+  const lastColumn = columnName(headers.length - 1);
+  const lastRow = rows.length + 4;
+  const columnWidths = [18, 22, 22, 18, 16, 30, 32, 26, 20, 18, 22];
+  const sheetRows = [
+    `<row r="1" ht="34" customHeight="1">${cellXml("A1", title, 1)}</row>`,
+    `<row r="2" ht="24" customHeight="1">${cellXml("A2", subtitle, 2)}</row>`,
+    `<row r="3" ht="8" customHeight="1"/>`,
+    `<row r="4" ht="38" customHeight="1">${headers.map((header, index) => cellXml(`${columnName(index)}4`, header, 3)).join("")}</row>`,
+    ...rows.map((row, rowIndex) =>
+      `<row r="${rowIndex + 5}">${row.map((value, columnIndex) =>
+        cellXml(`${columnName(columnIndex)}${rowIndex + 5}`, value, rowIndex % 2 ? 5 : 4)
+      ).join("")}</row>`
+    )
+  ].join("");
+  const worksheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<dimension ref="A1:${lastColumn}${lastRow}"/>
+<sheetViews><sheetView workbookViewId="0" showGridLines="0"><pane ySplit="4" topLeftCell="A5" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A5" sqref="A5"/></sheetView></sheetViews>
+<cols>${columnWidths.slice(0, headers.length).map((width, index) => `<col min="${index + 1}" max="${index + 1}" width="${width}" customWidth="1"/>`).join("")}</cols>
+<sheetData>${sheetRows}</sheetData>
+<autoFilter ref="A4:${lastColumn}${lastRow}"/>
+<mergeCells count="2"><mergeCell ref="A1:${lastColumn}1"/><mergeCell ref="A2:${lastColumn}2"/></mergeCells>
+</worksheet>`;
+  const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<fonts count="4"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="16"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font><font><i/><sz val="10"/><color rgb="FF666666"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts>
+<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFC00000"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF2F2F2"/><bgColor indexed="64"/></patternFill></fill></fills>
+<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFD9D9D9"/></left><right style="thin"><color rgb="FFD9D9D9"/></right><top style="thin"><color rgb="FFD9D9D9"/></top><bottom style="thin"><color rgb="FFD9D9D9"/></bottom><diagonal/></border></borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+<cellXfs count="6"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf><xf numFmtId="0" fontId="3" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf></cellXfs>
+<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`;
+  const files = [
+    ["[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`],
+    ["_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`],
+    ["xl/workbook.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView activeTab="0"/></bookViews><sheets><sheet name="Inventario" sheetId="1" r:id="rId1"/></sheets></workbook>`],
+    ["xl/_rels/workbook.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`],
+    ["xl/styles.xml", styles],
+    ["xl/worksheets/sheet1.xml", worksheet]
+  ];
+  const encoder = new TextEncoder();
+  const crcTable = Array.from({ length: 256 }, (_, index) => {
+    let value = index;
+    for (let bit = 0; bit < 8; bit++) value = value & 1 ? 0xEDB88320 ^ (value >>> 1) : value >>> 1;
+    return value >>> 0;
+  });
+  const crc32 = bytes => {
+    let crc = 0xFFFFFFFF;
+    for (const byte of bytes) crc = crcTable[(crc ^ byte) & 0xFF] ^ (crc >>> 8);
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+  };
+  const write16 = (view, offset, value) => view.setUint16(offset, value, true);
+  const write32 = (view, offset, value) => view.setUint32(offset, value, true);
+  const concat = parts => {
+    const result = new Uint8Array(parts.reduce((total, part) => total + part.length, 0));
+    let offset = 0;
+    for (const part of parts) {
+      result.set(part, offset);
+      offset += part.length;
+    }
+    return result;
+  };
+  const localParts = [];
+  const centralParts = [];
+  let offset = 0;
+  for (const [name, content] of files) {
+    const nameBytes = encoder.encode(name);
+    const data = encoder.encode(content);
+    const crc = crc32(data);
+    const localHeader = new Uint8Array(30 + nameBytes.length);
+    const localView = new DataView(localHeader.buffer);
+    write32(localView, 0, 0x04034B50);
+    write16(localView, 4, 20);
+    write16(localView, 6, 0x0800);
+    write16(localView, 8, 0);
+    write32(localView, 14, crc);
+    write32(localView, 18, data.length);
+    write32(localView, 22, data.length);
+    write16(localView, 26, nameBytes.length);
+    localHeader.set(nameBytes, 30);
+    localParts.push(localHeader, data);
+
+    const centralHeader = new Uint8Array(46 + nameBytes.length);
+    const centralView = new DataView(centralHeader.buffer);
+    write32(centralView, 0, 0x02014B50);
+    write16(centralView, 4, 20);
+    write16(centralView, 6, 20);
+    write16(centralView, 8, 0x0800);
+    write16(centralView, 10, 0);
+    write32(centralView, 16, crc);
+    write32(centralView, 20, data.length);
+    write32(centralView, 24, data.length);
+    write16(centralView, 28, nameBytes.length);
+    write32(centralView, 42, offset);
+    centralHeader.set(nameBytes, 46);
+    centralParts.push(centralHeader);
+    offset += localHeader.length + data.length;
+  }
+  const centralDirectory = concat(centralParts);
+  const end = new Uint8Array(22);
+  const endView = new DataView(end.buffer);
+  write32(endView, 0, 0x06054B50);
+  write16(endView, 8, files.length);
+  write16(endView, 10, files.length);
+  write32(endView, 12, centralDirectory.length);
+  write32(endView, 16, offset);
+  return new Blob([concat([...localParts, centralDirectory, end])], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  });
+}
+
 function exportToExcel() {
   const term = $("searchInput").value.trim().toLowerCase();
   const avail = $("availabilityFilter").value;
@@ -1095,77 +1225,39 @@ function exportToExcel() {
     "Registrado por"
   ];
 
-  const fileName = `Inventario_Supercarnes_JH_${today()}.xlsx`;
-
-  if (typeof XLSX !== "undefined") {
-    const rows = itemsToExport.map(e => {
-      const a = currentAssignment(e);
-      const isBaja = (e.estado || "").toLowerCase() === "de baja";
-      const dispText = isBaja ? "De baja" : (e.disponible === "si" ? "Disponible" : "No disponible");
-      return [
-        e.marca || "",
-        e.serial || e.referencia || "",
-        e.tipo || "",
-        e.estado || "",
-        dispText,
-        e.perifericos || "",
-        e.observaciones || "",
-        a?.asignadoA || "",
-        a?.area || "",
-        a?.fecha ? dateText(a.fecha) : "",
-        e.registradoPor || e.asignadoPor || ""
-      ];
-    });
-
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-    ws["!cols"] = [
-      { wch: 18 },
-      { wch: 22 },
-      { wch: 22 },
-      { wch: 18 },
-      { wch: 16 },
-      { wch: 30 },
-      { wch: 32 },
-      { wch: 26 },
-      { wch: 20 },
-      { wch: 18 },
-      { wch: 22 }
+  const rows = itemsToExport.map(e => {
+    const a = currentAssignment(e);
+    const isBaja = (e.estado || "").toLowerCase() === "de baja";
+    const dispText = isBaja ? "De baja" : (e.disponible === "si" ? "Disponible" : "No disponible");
+    return [
+      e.marca || "",
+      e.serial || e.referencia || "",
+      e.tipo || "",
+      e.estado || "",
+      dispText,
+      e.perifericos || "",
+      e.observaciones || "",
+      a?.asignadoA || "",
+      a?.area || "",
+      a?.fecha ? dateText(a.fecha) : "",
+      e.registradoPor || e.asignadoPor || ""
     ];
-
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Inventario");
-    XLSX.writeFile(wb, fileName);
-  } else {
-    const escapeCSV = val => `"${String(val ?? "").replace(/"/g, '""').replace(/\r?\n/g, ' ')}"`;
-    const rows = itemsToExport.map(e => {
-      const a = currentAssignment(e);
-      const isBaja = (e.estado || "").toLowerCase() === "de baja";
-      const dispText = isBaja ? "De baja" : (e.disponible === "si" ? "Disponible" : "No disponible");
-      return [
-        escapeCSV(e.marca),
-        escapeCSV(e.serial || e.referencia || ""),
-        escapeCSV(e.tipo),
-        escapeCSV(e.estado),
-        escapeCSV(dispText),
-        escapeCSV(e.perifericos || ""),
-        escapeCSV(e.observaciones || ""),
-        escapeCSV(a?.asignadoA || ""),
-        escapeCSV(a?.area || ""),
-        escapeCSV(a?.fecha || ""),
-        escapeCSV(e.registradoPor || e.asignadoPor || "")
-      ].join(";");
-    });
-    const csvContent = "\uFEFFsep=;\r\n" + headers.map(escapeCSV).join(";") + "\r\n" + rows.join("\r\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Inventario_Supercarnes_JH_${today()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  }
+  });
+  const fileName = `Inventario_Supercarnes_JH_${today()}.xlsx`;
+  const blob = createExcelFile(
+    headers,
+    rows,
+    "INVENTARIO DE EQUIPOS - SUPERCARNES JH",
+    `Registros exportados: ${itemsToExport.length} | Fecha: ${today()}`
+  );
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 
   toast(`Exportados ${itemsToExport.length} equipo(s) a ${fileName}`);
 }
