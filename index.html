@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261023_13">
+  <link rel="stylesheet" href="styles.css?v=20261023_15">
 </head>
 <body>
   <div class="app-shell">
@@ -59,14 +59,14 @@
       </section>
 
       <section class="view" id="assignmentsView">
-        <div class="section-heading"><div><h3>Historial de asignaciones</h3><p>Entrega de equipos y responsables</p></div></div>
-        <div class="table-card"><div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Serial</th><th>Asignado a</th><th>Área</th><th>Fecha</th><th>Estado al asignar</th><th>Entregado por</th></tr></thead><tbody id="assignmentsTable"><tr><td colspan="7" class="empty-cell">No hay asignaciones registradas.</td></tr></tbody></table></div></div>
+        <div class="section-heading"><div><h3>Historial de asignaciones</h3><p>Entrega de equipos y responsables</p></div><div class="heading-actions"><button class="btn btn-outline" id="exportAssignmentsBtn">📥 Exportar asignaciones a Excel</button></div></div>
+        <div class="table-card"><div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Serial</th><th>Asignado a</th><th>Área</th><th>Fecha</th><th>Estado al asignar</th><th>Entregado por</th><th>Acciones</th></tr></thead><tbody id="assignmentsTable"><tr><td colspan="8" class="empty-cell">No hay asignaciones registradas.</td></tr></tbody></table></div></div>
         <nav class="table-pagination" id="assignmentsPagination" aria-label="Paginación de asignaciones"></nav>
       </section>
 
       <section class="view" id="returnsView">
-        <div class="section-heading"><div><h3>Historial de recepciones</h3><p>Registro de devolución y condición de los equipos</p></div></div>
-        <div class="table-card"><div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Serial</th><th>Recibido de</th><th>Recibido por</th><th>Área</th><th>Fecha</th><th>Estado recibido</th></tr></thead><tbody id="returnsTable"><tr><td colspan="7" class="empty-cell">No hay recepciones registradas.</td></tr></tbody></table></div></div>
+        <div class="section-heading"><div><h3>Historial de recepciones</h3><p>Registro de devolución y condición de los equipos</p></div><div class="heading-actions"><button class="btn btn-outline" id="exportReturnsBtn">📥 Exportar recepciones a Excel</button></div></div>
+        <div class="table-card"><div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Serial</th><th>Recibido de</th><th>Recibido por</th><th>Área</th><th>Fecha</th><th>Estado recibido</th><th>Acciones</th></tr></thead><tbody id="returnsTable"><tr><td colspan="8" class="empty-cell">No hay recepciones registradas.</td></tr></tbody></table></div></div>
         <nav class="table-pagination" id="returnsPagination" aria-label="Paginación de recepciones"></nav>
       </section>
       <footer>Supercarnes JH · Sistema interno de inventario de equipos</footer>
@@ -178,16 +178,17 @@
           </select>
         </label>
         <div class="signature-field">
-          <span class="field-label">Firma de quien entrega</span>
-          <canvas id="assignmentDeliverySignature" class="signature-pad" width="700" height="160"></canvas>
+          <span class="field-label">Firma de quien entrega (obligatoria)</span>
+          <canvas id="assignmentDeliverySignature" class="signature-pad" width="700" height="160" tabindex="0" aria-label="Firma de quien entrega, obligatoria" aria-required="true"></canvas>
           <button type="button" class="clear-signature" data-clear="assignmentDeliverySignature">Limpiar firma</button>
         </div>
         <div class="signature-field">
-          <span class="field-label">Firma de quien recibe / acepta</span>
-          <canvas id="assignmentSignature" class="signature-pad" width="700" height="160"></canvas>
+          <span class="field-label">Firma de quien recibe / acepta (obligatoria)</span>
+          <canvas id="assignmentSignature" class="signature-pad" width="700" height="160" tabindex="0" aria-label="Firma de quien recibe o acepta, obligatoria" aria-required="true"></canvas>
           <button type="button" class="clear-signature" data-clear="assignmentSignature">Limpiar firma</button>
         </div>
       </div>
+      <p id="assignmentSignatureError" class="signature-error" role="alert" hidden></p>
       <div class="modal-actions"><button type="button" class="btn btn-outline" data-close="assignmentDialog">Cancelar</button><button class="btn btn-primary" type="submit">Guardar asignación</button></div>
     </form>
   </dialog>
@@ -211,8 +212,9 @@
         <label>Fecha de recepción <input id="receivedDate" type="date" required></label>
         <label>Estado recibido <select id="receivedCondition" required><option>Nuevo</option><option selected>Bueno</option><option>En Mantenimiento</option><option>De Baja</option></select></label>
         <label class="full">Periféricos recibidos <textarea id="receivedPeripherals" rows="2" placeholder="Accesorios que se reciben y observaciones"></textarea></label>
-        <div class="full signature-field"><span class="field-label">Firma de quien recibe el equipo</span><canvas id="returnSignature" class="signature-pad" width="700" height="160"></canvas><button type="button" class="clear-signature" data-clear="returnSignature">Limpiar firma</button></div>
+        <div class="full signature-field"><span class="field-label">Firma de quien recibe el equipo (obligatoria)</span><canvas id="returnSignature" class="signature-pad" width="700" height="160" tabindex="0" aria-label="Firma de quien recibe el equipo, obligatoria" aria-required="true"></canvas><button type="button" class="clear-signature" data-clear="returnSignature">Limpiar firma</button></div>
       </div>
+      <p id="returnSignatureError" class="signature-error" role="alert" hidden></p>
       <div class="modal-actions"><button type="button" class="btn btn-outline" data-close="returnDialog">Cancelar</button><button class="btn btn-primary" type="submit">Guardar recepción</button></div>
     </form>
   </dialog>
@@ -256,6 +258,6 @@
   <button type="button" id="scrollToTopBtn" class="scroll-to-top" aria-label="Volver arriba" title="Volver arriba" hidden>↑</button>
   <script src="xlsx.full.min.js" onerror="this.onerror=null;this.src='https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js'"></script>
   <script src="html2pdf.bundle.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'"></script>
-  <script type="module" src="app.js?v=20261023_13"></script>
+  <script type="module" src="app.js?v=20261023_21"></script>
 </body>
 </html>

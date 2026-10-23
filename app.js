@@ -19,6 +19,11 @@ function toast(message) {
   const el = $("toast"); el.textContent = message; el.classList.add("show");
   clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove("show"), 3300);
 }
+function clearSignatureError(form) {
+  const error = form.querySelector(".signature-error");
+  error.textContent = "";
+  error.hidden = true;
+}
 function today() { return new Date().toLocaleDateString("en-CA"); }
 function escapeHTML(value = "") {
   return String(value).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -212,8 +217,14 @@ function listenToEquipment() {
 }
 function renderAll() {
   const total = equipment.length;
-  const available = equipment.filter(e => e.disponible === "si" && (e.estado || "").toLowerCase() !== "de baja").length;
-  const assigned = equipment.filter(e => e.disponible !== "si" && (e.estado || "").toLowerCase() !== "de baja" && currentAssignment(e)).length;
+  const available = equipment.filter(e => {
+    const status = (e.estado || "").trim().toLowerCase();
+    return e.disponible === "si" && status !== "de baja" && status !== "en mantenimiento";
+  }).length;
+  const assigned = equipment.filter(e => {
+    const status = (e.estado || "").trim().toLowerCase();
+    return e.disponible !== "si" && status !== "de baja" && status !== "en mantenimiento" && currentAssignment(e);
+  }).length;
   $("statTotal").textContent = total;
   $("statAvailable").textContent = available;
   $("statAssigned").textContent = assigned;
@@ -314,10 +325,10 @@ function renderInventory() {
 }
 function renderAssignments() {
   const rows = [];
-  equipment.forEach(e => (e.asignaciones || []).forEach(a => rows.push({e,a})));
+  equipment.forEach(e => (e.asignaciones || []).forEach((a,index) => rows.push({e,a,index})));
   rows.sort((x,y) => (y.a.fecha || "").localeCompare(x.a.fecha || ""));
   const pageRows = paginateRows(rows, "assignments", "assignmentsPagination");
-  $("assignmentsTable").innerHTML = pageRows.length ? pageRows.map(({e,a}) => `<tr>
+  $("assignmentsTable").innerHTML = pageRows.length ? pageRows.map(({e,a,index}) => `<tr>
     <td><span class="equipment-name">${escapeHTML(e.marca)}</span><span class="subtext">${escapeHTML(e.tipo)}</span></td>
     <td><span class="serial-tag">${escapeHTML(e.serial || e.referencia || "—")}</span></td>
     <td>${escapeHTML(a.asignadoA)}</td>
@@ -325,14 +336,15 @@ function renderAssignments() {
     <td>${dateText(a.fecha)}</td>
     <td>${statusPill(a.estado)}</td>
     <td>${escapeHTML(a.entregadoPor || a.recibidoPor || "—")}</td>
-  </tr>`).join("") : '<tr><td colspan="7" class="empty-cell">No hay asignaciones registradas.</td></tr>';
+    <td><button class="action-btn action-btn-pdf" data-action="print-assignment" data-id="${e.id}" data-record-index="${index}" title="Reimprimir asignación en PDF">PDF</button></td>
+  </tr>`).join("") : '<tr><td colspan="8" class="empty-cell">No hay asignaciones registradas.</td></tr>';
 }
 function renderReturns() {
   const rows = [];
-  equipment.forEach(e => (e.recepciones || []).forEach(r => rows.push({e,r})));
+  equipment.forEach(e => (e.recepciones || []).forEach((r,index) => rows.push({e,r,index})));
   rows.sort((x,y) => (y.r.fecha || "").localeCompare(x.r.fecha || ""));
   const pageRows = paginateRows(rows, "returns", "returnsPagination");
-  $("returnsTable").innerHTML = pageRows.length ? pageRows.map(({e,r}) => `<tr>
+  $("returnsTable").innerHTML = pageRows.length ? pageRows.map(({e,r,index}) => `<tr>
     <td><span class="equipment-name">${escapeHTML(e.marca)}</span><span class="subtext">${escapeHTML(e.tipo)}</span></td>
     <td><span class="serial-tag">${escapeHTML(e.serial || e.referencia || "—")}</span></td>
     <td>${escapeHTML(r.recibidoDe)}</td>
@@ -340,7 +352,8 @@ function renderReturns() {
     <td>${escapeHTML(r.area)}</td>
     <td>${dateText(r.fecha)}</td>
     <td>${statusPill(r.estado)}</td>
-  </tr>`).join("") : '<tr><td colspan="7" class="empty-cell">No hay recepciones registradas.</td></tr>';
+    <td><button class="action-btn action-btn-pdf" data-action="print-return" data-id="${e.id}" data-record-index="${index}" title="Reimprimir recepción en PDF">PDF</button></td>
+  </tr>`).join("") : '<tr><td colspan="8" class="empty-cell">No hay recepciones registradas.</td></tr>';
 }
 function updatePeripheralsDisplay() {
   const container = $("peripheralsDisplay");
@@ -496,6 +509,7 @@ function editEquipment(id) {
 function prepareAssignment(id) {
   const e = equipment.find(x => x.id === id); if (!e) return;
   $("assignmentForm").reset();
+  clearSignatureError($("assignmentForm"));
   clearPad("assignmentSignature");
   clearPad("assignmentDeliverySignature");
   $("assignmentEquipmentId").value = id; $("assignmentEquipmentLabel").textContent = `${equipmentName(e)} · ${e.tipo}`;
@@ -506,7 +520,7 @@ function prepareAssignment(id) {
 function prepareReturn(id) {
   const e = equipment.find(x => x.id === id); if (!e) return;
   const a = currentAssignment(e);
-  $("returnForm").reset(); clearPad("returnSignature");
+  $("returnForm").reset(); clearSignatureError($("returnForm")); clearPad("returnSignature");
   $("returnEquipmentId").value = id; $("returnEquipmentLabel").textContent = `${equipmentName(e)} · ${e.tipo}`;
   $("receivedDate").value = today(); $("receivedFrom").value = a?.asignadoA || "";
   $("receivedArea").value = a?.area || ""; $("receivedPeripherals").value = a?.perifericos || e.perifericos || "";
@@ -548,9 +562,20 @@ async function saveEquipment(event) {
 }
 async function saveAssignment(event) {
   event.preventDefault();
+  const missingSignature = ["assignmentDeliverySignature", "assignmentSignature"].find(id => !padHasInk(id));
+  if (missingSignature) {
+    const error = $("assignmentSignatureError");
+    error.textContent = missingSignature === "assignmentDeliverySignature"
+      ? "La firma de quien entrega es obligatoria."
+      : "La firma de quien recibe / acepta es obligatoria.";
+    error.hidden = false;
+    $(missingSignature).focus();
+    return;
+  }
+  clearSignatureError($("assignmentForm"));
   const id = $("assignmentEquipmentId").value; const e = equipment.find(x => x.id === id); if (!e) return;
-  const signatureReceive = padHasInk("assignmentSignature") ? $("assignmentSignature").toDataURL("image/png") : "";
-  const signatureDelivery = padHasInk("assignmentDeliverySignature") ? $("assignmentDeliverySignature").toDataURL("image/png") : "";
+  const signatureReceive = $("assignmentSignature").toDataURL("image/png");
+  const signatureDelivery = $("assignmentDeliverySignature").toDataURL("image/png");
   const a = {
     asignadoA: $("assignedTo").value.trim(),
     area: $("assignedArea").value.trim(),
@@ -577,8 +602,16 @@ async function saveAssignment(event) {
 }
 async function saveReturn(event) {
   event.preventDefault();
+  if (!padHasInk("returnSignature")) {
+    const error = $("returnSignatureError");
+    error.textContent = "La firma de quien recibe el equipo es obligatoria.";
+    error.hidden = false;
+    $("returnSignature").focus();
+    return;
+  }
+  clearSignatureError($("returnForm"));
   const id = $("returnEquipmentId").value; const e = equipment.find(x => x.id === id); if (!e) return;
-  const signature = padHasInk("returnSignature") ? $("returnSignature").toDataURL("image/png") : "";
+  const signature = $("returnSignature").toDataURL("image/png");
   const r = { recibidoDe:$("receivedFrom").value.trim(), recibidoPor:$("returnReceivedBy").value, area:$("receivedArea").value.trim(), fecha:$("receivedDate").value, perifericos:$("receivedPeripherals").value.trim(), estado:$("receivedCondition").value, firma:signature, registradoEn:new Date().toISOString() };
   closeDialog("returnDialog");
   toast("Guardando recepción...");
@@ -699,7 +732,7 @@ async function downloadEquipmentPdf(id) {
   const receiveArea = activeAssign?.area || (activeReturn?.area || "");
   const receiveDate = activeAssign?.fecha ? dateText(activeAssign.fecha) : today();
 
-  let returnName = activeReturn?.recibidoDe || "";
+  let returnName = activeReturn?.recibidoPor || activeReturn?.recibidoDe || "";
   let returnSig = activeReturn?.firma || "";
   let returnDate = activeReturn?.fecha ? dateText(activeReturn.fecha) : "";
 
@@ -707,7 +740,7 @@ async function downloadEquipmentPdf(id) {
     const foundRet = rList.slice().reverse().find(x => x.firma);
     if (foundRet) {
       returnSig = foundRet.firma;
-      returnName = foundRet.recibidoDe || returnName;
+      returnName = foundRet.recibidoPor || foundRet.recibidoDe || returnName;
       returnDate = foundRet.fecha ? dateText(foundRet.fecha) : returnDate;
     }
   }
@@ -736,7 +769,7 @@ async function downloadEquipmentPdf(id) {
       </div>
       <div style="${sigInfoStyle}">
         <p style="margin:0;font-size:11px;font-weight:800;color:#0f172a;">${escapeHTML(receiveName)}</p>
-        <p style="margin:2px 0 0;font-size:9.5px;color:#64748b;font-weight:600;">${escapeHTML(receiveArea ? `Funcionario (${receiveArea})` : "Funcionario Responsable")}</p>
+        <p style="margin:2px 0 0;font-size:9.5px;color:#64748b;font-weight:600;">${escapeHTML(receiveArea ? `Área: ${receiveArea}` : "Área no especificada")}</p>
         <p style="margin:2px 0 0;font-size:9px;color:#94a3b8;">Fecha: ${receiveDate}</p>
       </div>
     </div>`;
@@ -750,7 +783,7 @@ async function downloadEquipmentPdf(id) {
       </div>
       <div style="${sigInfoStyle}">
         <p style="margin:0;font-size:11px;font-weight:800;color:#0f172a;">${escapeHTML(returnName)}</p>
-        <p style="margin:2px 0 0;font-size:9.5px;color:#64748b;font-weight:600;">Devuelto a inventario</p>
+        <p style="margin:2px 0 0;font-size:9.5px;color:#64748b;font-weight:600;">Área de Sistemas / Soporte</p>
         <p style="margin:2px 0 0;font-size:9px;color:#94a3b8;">Fecha: ${returnDate}</p>
       </div>
     </div>`;
@@ -874,6 +907,149 @@ async function downloadEquipmentPdf(id) {
   }
 }
 
+function recordPdfHtml(title, e, fields, signatures) {
+  const serial = e.serial || e.referencia || "—";
+  const fieldHtml = fields.map(([label, value]) => `
+    <div class="pdf-field"><small>${escapeHTML(label)}</small><strong>${escapeHTML(value || "—")}</strong></div>
+  `).join("");
+  const signatureHtml = signatures.map(({role,name,subtitle,date,signature}) => {
+    const image = /^data:image\/(?:png|jpe?g|webp);base64,/i.test(signature || "")
+      ? `<img src="${escapeHTML(signature)}" alt="Firma ${escapeHTML(role)}">`
+      : '<div class="empty-signature"></div>';
+    return `<div class="signature"><small class="signature-role">${escapeHTML(role)}</small><div class="signature-image">${image}</div><div class="signature-info"><p class="signature-name">${escapeHTML(name || "—")}</p><p class="signature-subtitle">${escapeHTML(subtitle || "")}</p><p class="signature-date">Fecha: ${escapeHTML(date || "—")}</p></div></div>`;
+  }).join("");
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><style>
+    *{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#1e293b;font-size:10px;margin:0}
+    .document{max-width:800px;margin:0 auto;padding:10px;background:#fff}
+    .header{display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #b5121b;padding-bottom:6px;margin-bottom:8px}
+    .logo{max-width:105px;max-height:48px;height:auto;object-fit:contain}.header-info{text-align:right}.header-info h1{font-size:15px;color:#b5121b;margin:0 0 2px}
+    .header-info p{font-size:9px;color:#64748b;margin:2px 0}
+    h2{font-size:12px;color:#b5121b;margin:0 0 5px}
+    .section{margin-bottom:8px;break-inside:avoid;page-break-inside:avoid}.section-title{font-size:10px;font-weight:bold;color:#b5121b;border-bottom:1px solid #e2e8f0;padding-bottom:3px;margin-bottom:5px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:7px 9px}
+    .pdf-field small{display:block;color:#64748b;font-size:7px;font-weight:bold;text-transform:uppercase;margin-bottom:1px}
+    .pdf-field strong{font-size:9px;color:#0f172a;overflow-wrap:anywhere}
+    .signatures{display:flex;gap:10px;margin-top:5px;break-inside:avoid;page-break-inside:avoid}
+    .signature{flex:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:7px 10px 6px;text-align:center;display:flex;flex-direction:column;align-items:center;min-height:112px;justify-content:space-between;break-inside:avoid;page-break-inside:avoid}
+    .signature-role{display:block;width:100%;font-size:9px;font-weight:800;color:#475569;letter-spacing:.6px;text-transform:uppercase;margin-bottom:3px;border-bottom:1px solid #e2e8f0;padding-bottom:3px}
+    .signature-image{height:44px;display:flex;align-items:center;justify-content:center;width:100%;margin:2px 0}
+    .signature img{max-height:40px;max-width:210px;object-fit:contain;display:block}
+    .empty-signature{width:75%;height:28px;border-bottom:1.5px dashed #94a3b8}
+    .signature-info{width:100%;border-top:1px solid #cbd5e1;padding-top:4px;margin-top:2px}
+    .signature-info p{margin:0}
+    .signature-name{font-size:11px;font-weight:800;color:#0f172a}
+    .signature-subtitle{margin-top:2px!important;font-size:9.5px;color:#64748b;font-weight:600}
+    .signature-date{margin-top:2px!important;font-size:9px;color:#94a3b8}
+    .footer{border-top:1px solid #e2e8f0;padding-top:4px;margin-top:8px;text-align:center;color:#94a3b8;font-size:7px}
+    @media print{@page{size:8.5in 5.5in;margin:7mm}body{padding:0}.document{padding:0}.section,.signatures{break-inside:avoid;page-break-inside:avoid}}
+  </style></head><body><main class="document">
+    <header class="header"><img class="logo" src="${LOGO_JH_DATA_URL}" alt="Supercarnes JH"><div class="header-info"><h1>SUPERCARNES JH</h1><p>${escapeHTML(title)}</p><p>Generado el ${new Date().toLocaleDateString("es-CO")}</p></div></header>
+    <h2>${escapeHTML(title)}</h2>
+    <section class="section"><div class="section-title">INFORMACIÓN DEL EQUIPO</div><div class="grid">
+      <div class="pdf-field"><small>Marca</small><strong>${escapeHTML(e.marca || "—")}</strong></div>
+      <div class="pdf-field"><small>Serial / referencia</small><strong>${escapeHTML(serial)}</strong></div>
+      <div class="pdf-field"><small>Tipo de equipo</small><strong>${escapeHTML(e.tipo || "—")}</strong></div>
+      ${fieldHtml}
+    </div></section>
+    <section class="section"><div class="section-title">FIRMAS</div><div class="signatures">${signatureHtml}</div></section>
+    <footer class="footer">Supercarnes JH · Sistema de Gestión y Control de Equipos · Documento de Control Interno</footer>
+  </main></body></html>`;
+}
+
+async function downloadRecordPdf(htmlContent, fileName) {
+  toast("Generando PDF...");
+  const printFallback = () => {
+    const printWin = window.open("", "_blank");
+    if (!printWin) {
+      toast("Permite las ventanas emergentes para imprimir o guardar el PDF.");
+      return;
+    }
+    printWin.document.write(htmlContent);
+    printWin.document.close();
+    printWin.onload = () => setTimeout(() => printWin.print(), 400);
+    toast("Abriendo ventana de impresión para guardar como PDF.");
+  };
+
+  if (typeof window.html2pdf === "undefined") {
+    printFallback();
+    return;
+  }
+  const wrapper = document.createElement("div");
+  wrapper.id = "recordPdfRenderWrapper";
+  wrapper.style.cssText = "position:fixed;top:0;left:0;width:800px;background:#fff;z-index:2147483647;pointer-events:none;visibility:hidden;";
+  wrapper.innerHTML = htmlContent;
+  document.body.appendChild(wrapper);
+  try {
+    await window.html2pdf().set({
+      margin: [7, 7, 7, 7],
+      filename: fileName,
+      pagebreak: { mode: ["avoid-all", "css", "legacy"] },
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        onclone: clonedDocument => {
+          const clonedWrapper = clonedDocument.getElementById("recordPdfRenderWrapper");
+          if (clonedWrapper) clonedWrapper.style.visibility = "visible";
+        }
+      },
+      jsPDF: { unit: "mm", format: [215.9, 139.7], orientation: "landscape" }
+    }).from(wrapper.querySelector(".document")).save();
+    toast("PDF descargado correctamente.");
+  } catch (err) {
+    console.error("Error al generar PDF del registro:", err);
+    printFallback();
+  } finally {
+    wrapper.remove();
+  }
+}
+
+function downloadAssignmentPdf(id, index) {
+  const e = equipment.find(item => item.id === id);
+  const assignment = e?.asignaciones?.[index];
+  if (!e || !assignment) {
+    toast("No se encontró la asignación para imprimir.");
+    return;
+  }
+  const serial = String(e.serial || e.referencia || "equipo").replace(/[^\w-]/g, "_");
+  const fileName = `Asignacion_${serial}_${assignment.fecha || today()}.pdf`;
+  const html = recordPdfHtml("COMPROBANTE DE ASIGNACIÓN", e, [
+    ["Asignado a", assignment.asignadoA],
+    ["Área asignada", assignment.area],
+    ["Fecha de asignación", dateText(assignment.fecha)],
+    ["Estado al asignar", assignment.estado],
+    ["Periféricos entregados", assignment.perifericos],
+    ["Entregado por", assignment.entregadoPor || assignment.recibidoPor]
+  ], [
+    { role: "Entregado por (Sistemas / TI)", name: assignment.entregadoPor || assignment.recibidoPor, subtitle: "Área de Sistemas / Soporte", date: dateText(assignment.fecha), signature: assignment.firmaEntrega },
+    { role: "Recibido a conformidad", name: assignment.asignadoA, subtitle: assignment.area ? `Área: ${assignment.area}` : "Área no especificada", date: dateText(assignment.fecha), signature: assignment.firmaRecibe || assignment.firma }
+  ]);
+  downloadRecordPdf(html, fileName);
+}
+
+function downloadReturnPdf(id, index) {
+  const e = equipment.find(item => item.id === id);
+  const receipt = e?.recepciones?.[index];
+  if (!e || !receipt) {
+    toast("No se encontró la recepción para imprimir.");
+    return;
+  }
+  const serial = String(e.serial || e.referencia || "equipo").replace(/[^\w-]/g, "_");
+  const fileName = `Recepcion_${serial}_${receipt.fecha || today()}.pdf`;
+  const html = recordPdfHtml("COMPROBANTE DE RECEPCIÓN", e, [
+    ["Recibido de", receipt.recibidoDe],
+    ["Recibido por", receipt.recibidoPor],
+    ["Área", receipt.area],
+    ["Fecha de recepción", dateText(receipt.fecha)],
+    ["Estado recibido", receipt.estado],
+    ["Periféricos recibidos", receipt.perifericos]
+  ], [
+    { role: "Recepción de devolución", name: receipt.recibidoPor || receipt.recibidoDe, subtitle: "Área de Sistemas / Soporte", date: dateText(receipt.fecha), signature: receipt.firma }
+  ]);
+  downloadRecordPdf(html, fileName);
+}
+
 function fallbackPrintPdf(container, fileName) {
   const printWin = window.open("", "_blank");
   if (!printWin) {
@@ -994,7 +1170,7 @@ function padHasInk(id) { const c=$(id), ctx=c.getContext("2d"), d=ctx.getImageDa
 function setupSignaturePad(id) {
   const canvas=$(id),ctx=canvas.getContext("2d"); let drawing=false;
   function pos(ev){const r=canvas.getBoundingClientRect();const p=ev.touches?ev.touches[0]:ev;return {x:(p.clientX-r.left)*canvas.width/r.width,y:(p.clientY-r.top)*canvas.height/r.height};}
-  function start(ev){ev.preventDefault();drawing=true;const p=pos(ev);ctx.beginPath();ctx.moveTo(p.x,p.y);}
+  function start(ev){ev.preventDefault();clearSignatureError(canvas.closest("form"));drawing=true;const p=pos(ev);ctx.beginPath();ctx.moveTo(p.x,p.y);}
   function move(ev){if(!drawing)return;ev.preventDefault();const p=pos(ev);ctx.lineTo(p.x,p.y);ctx.stroke();}
   function end(){drawing=false;}
   canvas.addEventListener("pointerdown",start);canvas.addEventListener("pointermove",move);window.addEventListener("pointerup",end);
@@ -1065,7 +1241,7 @@ function xmlEscape(value) {
     .replace(/"/g, "&quot;");
 }
 
-function createExcelFile(headers, rows, title, subtitle) {
+function createExcelFile(headers, rows, title, subtitle, sheetName = "Inventario") {
   const columnName = index => {
     let name = "";
     for (let value = index + 1; value > 0; value = Math.floor((value - 1) / 26)) {
@@ -1110,7 +1286,7 @@ function createExcelFile(headers, rows, title, subtitle) {
   const files = [
     ["[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`],
     ["_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`],
-    ["xl/workbook.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView activeTab="0"/></bookViews><sheets><sheet name="Inventario" sheetId="1" r:id="rId1"/></sheets></workbook>`],
+    ["xl/workbook.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView activeTab="0"/></bookViews><sheets><sheet name="${xmlEscape(sheetName)}" sheetId="1" r:id="rId1"/></sheets></workbook>`],
     ["xl/_rels/workbook.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`],
     ["xl/styles.xml", styles],
     ["xl/worksheets/sheet1.xml", worksheet]
@@ -1262,6 +1438,71 @@ function exportToExcel() {
   toast(`Exportados ${itemsToExport.length} equipo(s) a ${fileName}`);
 }
 
+function downloadExcelExport(headers, rows, title, prefix, sheetName, recordName) {
+  if (!rows.length) {
+    toast(`No hay ${recordName} para exportar.`);
+    return;
+  }
+  const fileName = `${prefix}_Supercarnes_JH_${today()}.xlsx`;
+  const blob = createExcelFile(headers, rows, title, `Registros exportados: ${rows.length} | Fecha: ${today()}`, sheetName);
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  toast(`Exportados ${rows.length} ${recordName} a ${fileName}`);
+}
+
+function exportAssignmentsToExcel() {
+  const rows = equipment.flatMap(e => (e.asignaciones || []).map(a => [
+    e.marca || "",
+    e.serial || e.referencia || "",
+    e.tipo || "",
+    a.asignadoA || "",
+    a.area || "",
+    a.fecha || "",
+    a.estado || "",
+    a.perifericos || "",
+    a.entregadoPor || a.recibidoPor || "",
+    a.firmaEntrega ? "Sí" : "No",
+    a.firmaRecibe || a.firma ? "Sí" : "No"
+  ])).sort((a,b) => b[5].localeCompare(a[5]));
+  downloadExcelExport(
+    ["Marca", "Serial", "Tipo de equipo", "Asignado a", "Área", "Fecha", "Estado al asignar", "Periféricos entregados", "Entregado por", "Firma de entrega", "Firma de recibido"],
+    rows,
+    "HISTORIAL DE ASIGNACIONES - SUPERCARNES JH",
+    "Asignaciones",
+    "Asignaciones",
+    "asignaciones"
+  );
+}
+
+function exportReturnsToExcel() {
+  const rows = equipment.flatMap(e => (e.recepciones || []).map(r => [
+    e.marca || "",
+    e.serial || e.referencia || "",
+    e.tipo || "",
+    r.recibidoDe || "",
+    r.recibidoPor || "",
+    r.area || "",
+    r.fecha || "",
+    r.estado || "",
+    r.perifericos || "",
+    r.firma ? "Sí" : "No"
+  ])).sort((a,b) => b[6].localeCompare(a[6]));
+  downloadExcelExport(
+    ["Marca", "Serial", "Tipo de equipo", "Recibido de", "Recibido por", "Área", "Fecha", "Estado recibido", "Periféricos recibidos", "Firma registrada"],
+    rows,
+    "HISTORIAL DE RECEPCIONES - SUPERCARNES JH",
+    "Recepciones",
+    "Recepciones",
+    "recepciones"
+  );
+}
+
 function navigate(view) {
   document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
   document.querySelectorAll(".nav-item").forEach(b => b.classList.toggle("active",b.dataset.view===view));
@@ -1337,6 +1578,8 @@ document.addEventListener("click",event=>{
   if(action==="assign")prepareAssignment(id); if(action==="receive")prepareReturn(id);
   if(action==="decommission")decommissionEquipment(id);
   if(action==="delete")deleteEquipment(id,b);
+  if(action==="print-assignment")downloadAssignmentPdf(id,Number(b.dataset.recordIndex));
+  if(action==="print-return")downloadReturnPdf(id,Number(b.dataset.recordIndex));
 });
 $("mobileMenu").addEventListener("click", () => {
   const isOpen = $("sidebar").classList.toggle("open");
@@ -1351,6 +1594,8 @@ document.addEventListener("click", event => {
   $("mobileMenu").setAttribute("aria-expanded", "false");
 });
 $("exportExcelBtn")?.addEventListener("click",exportToExcel);
+$("exportAssignmentsBtn")?.addEventListener("click",exportAssignmentsToExcel);
+$("exportReturnsBtn")?.addEventListener("click",exportReturnsToExcel);
 $("downloadPdfBtn")?.addEventListener("click", () => {
   if (currentDetailEquipmentId) downloadEquipmentPdf(currentDetailEquipmentId);
 });
