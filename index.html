@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261022_3">
+  <link rel="stylesheet" href="styles.css?v=20261023_9">
 </head>
 <body>
   <div class="app-shell">
@@ -55,17 +55,19 @@
         <div class="section-heading"><div><h3>Inventario de equipos</h3><p>Registro maestro de los activos tecnológicos</p></div><div class="heading-actions"><button class="btn btn-outline" id="exportExcelBtn">📥 Exportar a Excel</button><button class="btn btn-primary" id="newEquipmentBtn2">＋ Nuevo equipo</button></div></div>
         <div class="toolbar"><div class="search-box"><span>⌕</span><input id="searchInput" type="search" placeholder="Buscar por marca, serial, tipo o responsable..."></div><select id="availabilityFilter"><option value="">Todas las disponibilidades</option><option value="si">Disponible</option><option value="no">No disponible</option><option value="baja">De baja</option></select><select id="statusFilter"><option value="">Todos los estados</option><option>Nuevo</option><option>Bueno</option><option>En Mantenimiento</option><option>De Baja</option></select></div>
         <div class="table-card"><div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Serial</th><th>Tipo</th><th>Estado</th><th>Periféricos</th><th>Disponible</th><th>Asignado a</th><th>Fecha asignación</th><th>Acciones</th></tr></thead><tbody id="inventoryTable"><tr><td colspan="9" class="empty-cell">Cargando inventario...</td></tr></tbody></table></div></div>
-        <p class="table-footnote" id="inventoryCount">0 equipos</p>
+        <div class="table-pagination-footer"><p class="table-footnote" id="inventoryCount">0 equipos</p><nav class="table-pagination" id="inventoryPagination" aria-label="Paginación del inventario"></nav></div>
       </section>
 
       <section class="view" id="assignmentsView">
         <div class="section-heading"><div><h3>Historial de asignaciones</h3><p>Entrega de equipos y responsables</p></div></div>
         <div class="table-card"><div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Serial</th><th>Asignado a</th><th>Área</th><th>Fecha</th><th>Estado al asignar</th><th>Entregado por</th></tr></thead><tbody id="assignmentsTable"><tr><td colspan="7" class="empty-cell">No hay asignaciones registradas.</td></tr></tbody></table></div></div>
+        <nav class="table-pagination" id="assignmentsPagination" aria-label="Paginación de asignaciones"></nav>
       </section>
 
       <section class="view" id="returnsView">
         <div class="section-heading"><div><h3>Historial de recepciones</h3><p>Registro de devolución y condición de los equipos</p></div></div>
-        <div class="table-card"><div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Serial</th><th>Recibido de</th><th>Área</th><th>Fecha</th><th>Estado recibido</th><th>Firma</th></tr></thead><tbody id="returnsTable"><tr><td colspan="7" class="empty-cell">No hay recepciones registradas.</td></tr></tbody></table></div></div>
+        <div class="table-card"><div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Serial</th><th>Recibido de</th><th>Recibido por</th><th>Área</th><th>Fecha</th><th>Estado recibido</th></tr></thead><tbody id="returnsTable"><tr><td colspan="7" class="empty-cell">No hay recepciones registradas.</td></tr></tbody></table></div></div>
+        <nav class="table-pagination" id="returnsPagination" aria-label="Paginación de recepciones"></nav>
       </section>
       <footer>Supercarnes JH · Sistema interno de inventario de equipos</footer>
     </main>
@@ -99,6 +101,22 @@
           </select>
         </label>
         <label>Disponible <select id="available" required><option value="si">Sí</option><option value="no">No</option></select></label>
+        <div class="full equipment-photo-field">
+          <span class="field-label">Foto del equipo</span>
+          <div class="equipment-photo-controls">
+            <label class="equipment-photo-picker" for="equipmentPhotoInput">
+              <span aria-hidden="true">▧</span>
+              <span id="equipmentPhotoPickerText">Tomar o seleccionar foto</span>
+              <input id="equipmentPhotoInput" class="equipment-photo-input" type="file" accept="image/*" capture="environment" aria-describedby="equipmentPhotoHelp equipmentPhotoStatus">
+            </label>
+            <button type="button" id="removeEquipmentPhotoBtn" class="btn btn-outline equipment-photo-remove" hidden>Quitar foto</button>
+          </div>
+          <p id="equipmentPhotoHelp" class="equipment-photo-help">En celulares se abrirá la cámara. La imagen se optimiza para guardarse con el equipo.</p>
+          <p id="equipmentPhotoStatus" class="equipment-photo-status" role="status" aria-live="polite"></p>
+          <div id="equipmentPhotoPreview" class="equipment-photo-preview" hidden>
+            <img id="equipmentPhotoPreviewImage" alt="Vista previa de la foto del equipo">
+          </div>
+        </div>
         <div class="full multiselect-field">
           <span class="field-label">Periféricos</span>
           <div class="custom-multiselect" id="peripheralsSelectContainer">
@@ -183,6 +201,15 @@
       <input type="hidden" id="returnEquipmentId">
       <div class="form-grid">
         <label>Recibido de <input id="receivedFrom" required placeholder="Persona que devuelve el equipo"></label>
+        <label>Recibido por
+          <select id="returnReceivedBy" required>
+            <option value="" disabled selected>Seleccione responsable...</option>
+            <option value="Jeison Sanchez">Jeison Sanchez</option>
+            <option value="Jose Monterroza">Jose Monterroza</option>
+            <option value="Willinton Manco">Willinton Manco</option>
+            <option value="Jhon Vega">Jhon Vega</option>
+          </select>
+        </label>
         <label>Área recibida <input id="receivedArea" required placeholder="Área de procedencia"></label>
         <label>Fecha de recepción <input id="receivedDate" type="date" required></label>
         <label>Estado recibido <select id="receivedCondition" required><option>Nuevo</option><option selected>Bueno</option><option>En Mantenimiento</option><option>De Baja</option></select></label>
@@ -212,9 +239,22 @@
       </div>
     </div>
   </dialog>
+  <dialog id="confirmationDialog" class="modal confirmation-dialog" aria-labelledby="confirmationTitle" aria-describedby="confirmationMessage">
+    <div class="modal-form">
+      <div class="confirmation-icon" id="confirmationIcon" aria-hidden="true">!</div>
+      <p class="eyebrow" id="confirmationEyebrow">CONFIRMACIÓN</p>
+      <h2 id="confirmationTitle">¿Estás seguro?</h2>
+      <p class="confirmation-message" id="confirmationMessage"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" id="confirmationCancelBtn">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="confirmationAcceptBtn">Confirmar</button>
+      </div>
+    </div>
+  </dialog>
   <div id="toast" class="toast" role="status"></div>
+  <button type="button" id="scrollToTopBtn" class="scroll-to-top" aria-label="Volver arriba" title="Volver arriba" hidden>↑</button>
   <script src="xlsx.full.min.js" onerror="this.onerror=null;this.src='https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js'"></script>
   <script src="html2pdf.bundle.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'"></script>
-  <script type="module" src="app.js?v=20261022_6"></script>
+  <script type="module" src="app.js?v=20261023_9"></script>
 </body>
 </html>

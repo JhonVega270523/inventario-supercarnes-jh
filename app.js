@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, doc, addDoc, getDocs, getDoc, updateDoc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
 import { LOGO_JH_DATA_URL } from "./logo-data.js";
 
@@ -9,6 +9,10 @@ let db = null;
 let equipment = [];
 let currentDetailEquipmentId = null;
 let toastTimer;
+let equipmentPhotoData = "";
+let equipmentPhotoProcessing = false;
+const pageSize = 20;
+const tablePages = { inventory: 1, assignments: 1, returns: 1 };
 
 function toast(message) {
   const el = $("toast"); el.textContent = message; el.classList.add("show");
@@ -17,6 +21,85 @@ function toast(message) {
 function today() { return new Date().toLocaleDateString("en-CA"); }
 function escapeHTML(value = "") {
   return String(value).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function setEquipmentPhoto(photo = "") {
+  equipmentPhotoData = photo;
+  if (photo) $("equipmentPhotoPreviewImage").src = photo;
+  else $("equipmentPhotoPreviewImage").removeAttribute("src");
+  $("equipmentPhotoPreview").hidden = !photo;
+  $("removeEquipmentPhotoBtn").hidden = !photo;
+  $("equipmentPhotoPickerText").textContent = photo ? "Cambiar foto" : "Tomar o seleccionar foto";
+}
+function compressEquipmentPhoto(file) {
+  if (!file.type.startsWith("image/")) {
+    return Promise.reject(new Error("Selecciona un archivo de imagen válido."));
+  }
+
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = async () => {
+      URL.revokeObjectURL(objectUrl);
+      try {
+        const canvas = document.createElement("canvas");
+        let scale = Math.min(1, 1280 / Math.max(image.naturalWidth, image.naturalHeight));
+        const maxBytes = 180 * 1024;
+
+        for (let attempt = 0; attempt < 9; attempt++) {
+          canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+          canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+          canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+          const quality = Math.max(0.5, 0.82 - attempt * 0.04);
+          const blob = await new Promise((toBlobResolve, toBlobReject) => {
+            canvas.toBlob(result => {
+              if (result) toBlobResolve(result);
+              else toBlobReject(new Error("No fue posible optimizar la foto."));
+            }, "image/jpeg", quality);
+          });
+
+          if (blob.size <= maxBytes) {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(new Error("No fue posible leer la foto optimizada."));
+            reader.readAsDataURL(blob);
+            return;
+          }
+          scale *= 0.88;
+        }
+
+        reject(new Error("La foto es demasiado grande. Intenta tomarla con menor resolución."));
+      } catch (err) {
+        reject(err);
+      }
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("No fue posible abrir la foto seleccionada."));
+    };
+    image.src = objectUrl;
+  });
+}
+async function handleEquipmentPhotoChange(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  equipmentPhotoProcessing = true;
+  event.target.disabled = true;
+  $("removeEquipmentPhotoBtn").disabled = true;
+  $("equipmentPhotoStatus").textContent = "Optimizando foto…";
+  try {
+    setEquipmentPhoto(await compressEquipmentPhoto(file));
+    $("equipmentPhotoStatus").textContent = "Foto lista para guardar.";
+  } catch (err) {
+    console.error(err);
+    $("equipmentPhotoStatus").textContent = "";
+    toast(err.message || "No fue posible procesar la foto.");
+  } finally {
+    equipmentPhotoProcessing = false;
+    event.target.disabled = false;
+    $("removeEquipmentPhotoBtn").disabled = false;
+    event.target.value = "";
+  }
 }
 function dateText(value) {
   if (!value) return "—";
@@ -53,21 +136,66 @@ function latestReturn(item) {
 function openDialog(id) { $(id).showModal(); }
 function closeDialog(id) { $(id).close(); }
 
-async function loadEquipment() {
+function paginateRows(rows, table, paginationId) {
+  const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+  tablePages[table] = Math.min(tablePages[table], pageCount);
+  const page = tablePages[table];
+  const startIndex = (page - 1) * pageSize;
+  const firstRow = rows.length ? startIndex + 1 : 0;
+  const lastRow = Math.min(startIndex + pageSize, rows.length);
+  const pagination = $(paginationId);
+
+  pagination.innerHTML = `
+    <span class="pagination-status">${firstRow}–${lastRow} de ${rows.length}</span>
+    <div class="pagination-buttons">
+      <button type="button" class="btn btn-outline" data-pagination="${table}" data-page="${page - 1}" ${page <= 1 ? "disabled" : ""}>Anterior</button>
+      <span class="pagination-current">Página ${page} de ${pageCount}</span>
+      <button type="button" class="btn btn-outline" data-pagination="${table}" data-page="${page + 1}" ${page >= pageCount ? "disabled" : ""}>Siguiente</button>
+    </div>`;
+
+  return rows.slice(startIndex, startIndex + pageSize);
+}
+
+function confirmAction({ title, message, confirmText, destructive = false }) {
+  const dialog = $("confirmationDialog");
+  const acceptButton = $("confirmationAcceptBtn");
+  $("confirmationTitle").textContent = title;
+  $("confirmationMessage").textContent = message;
+  $("confirmationEyebrow").textContent = destructive ? "ACCIÓN PERMANENTE" : "CONFIRMACIÓN";
+  $("confirmationIcon").textContent = destructive ? "!" : "?";
+  acceptButton.textContent = confirmText;
+  acceptButton.classList.toggle("btn-danger", destructive);
+  dialog.dataset.confirmed = "false";
+  dialog.showModal();
+
+  return new Promise(resolve => {
+    dialog.addEventListener("close", () => {
+      resolve(dialog.dataset.confirmed === "true");
+    }, { once: true });
+  });
+}
+
+function listenToEquipment() {
   if (!db) return;
-  try {
-    const snap = await getDocs(query(collection(db, equipmentCollection), orderBy("updatedAt", "desc")));
-    equipment = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  } catch (err) {
-    console.error(err);
-    try {
-      const snap = await getDocs(collection(db, equipmentCollection));
-      equipment = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0));
-    } catch (secondErr) {
-      console.error(secondErr); toast("No fue posible leer Firestore. Revisa las reglas y la configuración.");
+  onSnapshot(collection(db, equipmentCollection), { includeMetadataChanges: true }, snapshot => {
+    equipment = snapshot.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0));
+    renderAll();
+    if (currentDetailEquipmentId && !equipment.some(e => e.id === currentDetailEquipmentId)) {
+      $("historyDialog").close();
+      currentDetailEquipmentId = null;
     }
-  }
-  renderAll();
+    $("connectionText").textContent = snapshot.metadata.fromCache
+      ? "Sincronizando con Firebase…"
+      : "Sincronizado en tiempo real";
+    document.querySelector(".connection-dot").style.background = snapshot.metadata.fromCache ? "#d99a18" : "#31b66a";
+  }, err => {
+    console.error(err);
+    $("connectionText").textContent = "Error de sincronización";
+    document.querySelector(".connection-dot").style.background = "#b5121b";
+    toast("No fue posible sincronizar Firestore. Revisa la conexión, las reglas y la configuración.");
+  });
 }
 function renderAll() {
   const total = equipment.length;
@@ -126,7 +254,8 @@ function renderInventory() {
     return matchesTerm && matchesAvail && matchesStatus;
   });
   $("inventoryCount").textContent = `${filtered.length} equipo${filtered.length === 1 ? "" : "s"}${filtered.length !== equipment.length ? ` de ${equipment.length}` : ""}`;
-  $("inventoryTable").innerHTML = filtered.length ? filtered.map(e => {
+  const pageRows = paginateRows(filtered, "inventory", "inventoryPagination");
+  $("inventoryTable").innerHTML = pageRows.length ? pageRows.map(e => {
     const a = currentAssignment(e);
     const isBaja = (e.estado || "").toLowerCase() === "de baja";
     let actionBtns = `
@@ -153,6 +282,10 @@ function renderInventory() {
           <span class="btn-icon">✕</span><span class="btn-text">Dar de baja</span>
         </button>`;
     }
+    actionBtns += `
+      <button class="action-btn action-btn-delete" data-action="delete" data-id="${e.id}" title="Eliminar permanentemente el equipo" aria-label="Eliminar equipo">
+        <span class="btn-icon">🗑</span><span class="btn-text">Eliminar</span>
+      </button>`;
     return `<tr>
       <td><span class="equipment-name">${escapeHTML(e.marca || "—")}</span></td>
       <td><span class="serial-tag">${escapeHTML(e.serial || e.referencia || "—")}</span></td>
@@ -170,7 +303,8 @@ function renderAssignments() {
   const rows = [];
   equipment.forEach(e => (e.asignaciones || []).forEach(a => rows.push({e,a})));
   rows.sort((x,y) => (y.a.fecha || "").localeCompare(x.a.fecha || ""));
-  $("assignmentsTable").innerHTML = rows.length ? rows.map(({e,a}) => `<tr>
+  const pageRows = paginateRows(rows, "assignments", "assignmentsPagination");
+  $("assignmentsTable").innerHTML = pageRows.length ? pageRows.map(({e,a}) => `<tr>
     <td><span class="equipment-name">${escapeHTML(e.marca)}</span><span class="subtext">${escapeHTML(e.tipo)}</span></td>
     <td><span class="serial-tag">${escapeHTML(e.serial || e.referencia || "—")}</span></td>
     <td>${escapeHTML(a.asignadoA)}</td>
@@ -184,14 +318,15 @@ function renderReturns() {
   const rows = [];
   equipment.forEach(e => (e.recepciones || []).forEach(r => rows.push({e,r})));
   rows.sort((x,y) => (y.r.fecha || "").localeCompare(x.r.fecha || ""));
-  $("returnsTable").innerHTML = rows.length ? rows.map(({e,r}) => `<tr>
+  const pageRows = paginateRows(rows, "returns", "returnsPagination");
+  $("returnsTable").innerHTML = pageRows.length ? pageRows.map(({e,r}) => `<tr>
     <td><span class="equipment-name">${escapeHTML(e.marca)}</span><span class="subtext">${escapeHTML(e.tipo)}</span></td>
     <td><span class="serial-tag">${escapeHTML(e.serial || e.referencia || "—")}</span></td>
     <td>${escapeHTML(r.recibidoDe)}</td>
+    <td>${escapeHTML(r.recibidoPor || "—")}</td>
     <td>${escapeHTML(r.area)}</td>
     <td>${dateText(r.fecha)}</td>
     <td>${statusPill(r.estado)}</td>
-    <td>${r.firma ? `<a href="${r.firma}" target="_blank" rel="noopener">Ver firma</a>` : "—"}</td>
   </tr>`).join("") : '<tr><td colspan="7" class="empty-cell">No hay recepciones registradas.</td></tr>';
 }
 function updatePeripheralsDisplay() {
@@ -272,6 +407,8 @@ function setupPeripheralsSelect() {
 
 function resetEquipmentForm() {
   $("equipmentForm").reset();
+  setEquipmentPhoto();
+  $("equipmentPhotoStatus").textContent = "";
   $("equipmentId").value = "";
   $("equipmentDialogTitle").textContent = "Registrar equipo";
   $("brand").value = "";
@@ -322,6 +459,7 @@ function editEquipment(id) {
   }
 
   $("available").value = e.disponible || "si";
+  setEquipmentPhoto(e.foto || "");
   setPeripheralsValue(e.perifericos || "");
   $("observations").value = e.observaciones || "";
 
@@ -363,6 +501,10 @@ function prepareReturn(id) {
 }
 async function saveEquipment(event) {
   event.preventDefault();
+  if (equipmentPhotoProcessing) {
+    toast("Espera a que termine de procesarse la foto.");
+    return;
+  }
   const id = $("equipmentId").value;
   const data = {
     marca: $("brand").value.trim(),
@@ -373,15 +515,22 @@ async function saveEquipment(event) {
     disponible: $("available").value,
     perifericos: $("peripherals").value.trim(),
     observaciones: $("observations").value.trim(),
+    foto: equipmentPhotoData,
     asignadoPor: $("assignedBy").value.trim(),
     registradoPor: $("assignedBy").value.trim(),
     updatedAt: serverTimestamp()
   };
+  closeDialog("equipmentDialog");
+  toast(id ? "Actualizando equipo..." : "Guardando equipo...");
   try {
     if (id) await updateDoc(doc(db,equipmentCollection,id), data);
     else await addDoc(collection(db,equipmentCollection), {...data, asignaciones:[], recepciones:[], createdAt:serverTimestamp()});
-    closeDialog("equipmentDialog"); toast(id ? "Equipo actualizado correctamente." : "Equipo registrado correctamente."); await loadEquipment();
-  } catch(err) { console.error(err); toast("No se pudo guardar. Revisa tu conexión y las reglas de Firebase."); }
+    toast(id ? "Equipo actualizado correctamente." : "Equipo registrado correctamente.");
+  } catch(err) {
+    console.error(err);
+    openDialog("equipmentDialog");
+    toast("No se pudo guardar. Revisa tu conexión y las reglas de Firebase.");
+  }
 }
 async function saveAssignment(event) {
   event.preventDefault();
@@ -401,20 +550,32 @@ async function saveAssignment(event) {
     recibidoPor: $("assignmentReceivedBy").value.trim(),
     registradoEn: new Date().toISOString()
   };
+  closeDialog("assignmentDialog");
+  toast("Guardando asignación...");
   try {
     await updateDoc(doc(db,equipmentCollection,id), {disponible:"no", asignaciones:[...(e.asignaciones || []),a], estado:a.estado, updatedAt:serverTimestamp()});
-    closeDialog("assignmentDialog"); toast("Asignación guardada correctamente."); await loadEquipment();
-  } catch(err) { console.error(err); toast("No se pudo guardar la asignación. Verifica Firebase."); }
+    toast("Asignación guardada correctamente.");
+  } catch(err) {
+    console.error(err);
+    openDialog("assignmentDialog");
+    toast("No se pudo guardar la asignación. Verifica Firebase.");
+  }
 }
 async function saveReturn(event) {
   event.preventDefault();
   const id = $("returnEquipmentId").value; const e = equipment.find(x => x.id === id); if (!e) return;
   const signature = padHasInk("returnSignature") ? $("returnSignature").toDataURL("image/png") : "";
-  const r = { recibidoDe:$("receivedFrom").value.trim(), area:$("receivedArea").value.trim(), fecha:$("receivedDate").value, perifericos:$("receivedPeripherals").value.trim(), estado:$("receivedCondition").value, firma:signature, registradoEn:new Date().toISOString() };
+  const r = { recibidoDe:$("receivedFrom").value.trim(), recibidoPor:$("returnReceivedBy").value, area:$("receivedArea").value.trim(), fecha:$("receivedDate").value, perifericos:$("receivedPeripherals").value.trim(), estado:$("receivedCondition").value, firma:signature, registradoEn:new Date().toISOString() };
+  closeDialog("returnDialog");
+  toast("Guardando recepción...");
   try {
     await updateDoc(doc(db,equipmentCollection,id), {disponible:"si", estado:r.estado, perifericos:r.perifericos, recepciones:[...(e.recepciones || []),r], updatedAt:serverTimestamp()});
-    closeDialog("returnDialog"); toast("Recepción guardada. El equipo quedó disponible."); await loadEquipment();
-  } catch(err) { console.error(err); toast("No se pudo guardar la recepción. Verifica Firebase."); }
+    toast("Recepción guardada. El equipo quedó disponible.");
+  } catch(err) {
+    console.error(err);
+    openDialog("returnDialog");
+    toast("No se pudo guardar la recepción. Verifica Firebase.");
+  }
 }
 function showDetail(id) {
   const e = equipment.find(x => x.id === id); if (!e) return;
@@ -422,8 +583,9 @@ function showDetail(id) {
   $("historyTitle").textContent = `${equipmentName(e)} · ${e.tipo}`;
   const aList = e.asignaciones || [], rList = e.recepciones || [];
   const hasObs = Boolean(e.observaciones && e.observaciones.trim());
+  const photo = typeof e.foto === "string" && e.foto.startsWith("data:image/jpeg;base64,") ? e.foto : "";
 
-  $("historyContent").innerHTML = `<div class="detail-grid">
+  $("historyContent").innerHTML = `${photo ? `<div class="equipment-detail-photo"><img src="${escapeHTML(photo)}" alt="Foto de ${escapeHTML(e.marca || "equipo")}"></div>` : ""}<div class="detail-grid">
     <div class="detail-item"><small>Marca</small><strong>${escapeHTML(e.marca)}</strong></div>
     <div class="detail-item"><small>Serial</small><strong>${escapeHTML(e.serial || e.referencia || "—")}</strong></div>
     <div class="detail-item"><small>Tipo</small><strong>${escapeHTML(e.tipo)}</strong></div>
@@ -454,7 +616,7 @@ function showDetail(id) {
     const sigs = (deliveryImg || receiveImg) ? `<div class="signatures-preview-row">${deliveryImg}${receiveImg}</div>` : "";
     return `<div class="history-entry"><strong>${escapeHTML(a.asignadoA)}</strong> · ${escapeHTML(a.area)}<br>Fecha: ${dateText(a.fecha)} · Estado: ${escapeHTML(a.estado)}<br>Periféricos: ${escapeHTML(a.perifericos || "—")}<br>Entregado por: ${escapeHTML(a.entregadoPor || a.recibidoPor || "—")}${sigs}</div>`;
   }).join("") : '<p class="empty-history">Sin asignaciones.</p>'}</div>
-  <div class="history-block"><h3>Historial de recepciones (${rList.length})</h3>${rList.length ? [...rList].reverse().map(r => `<div class="history-entry"><strong>Recibido de: ${escapeHTML(r.recibidoDe)}</strong> · ${escapeHTML(r.area)}<br>Fecha: ${dateText(r.fecha)} · Estado: ${escapeHTML(r.estado)}<br>Periféricos: ${escapeHTML(r.perifericos || "—")}${r.firma ? `<br><img class="signature-preview" src="${r.firma}" alt="Firma de recepción">` : ""}</div>`).join("") : '<p class="empty-history">Sin recepciones.</p>'}</div>`;
+  <div class="history-block"><h3>Historial de recepciones (${rList.length})</h3>${rList.length ? [...rList].reverse().map(r => `<div class="history-entry"><strong>Recibido de: ${escapeHTML(r.recibidoDe)}</strong> · ${escapeHTML(r.area)}<br>Recibido por: ${escapeHTML(r.recibidoPor || "—")}<br>Fecha: ${dateText(r.fecha)} · Estado: ${escapeHTML(r.estado)}<br>Periféricos: ${escapeHTML(r.perifericos || "—")}${r.firma ? `<br><img class="signature-preview" src="${r.firma}" alt="Firma de recepción">` : ""}</div>`).join("") : '<p class="empty-history">Sin recepciones.</p>'}</div>`;
 
   setupDetailNotesEvents(e);
   openDialog("historyDialog");
@@ -653,13 +815,22 @@ async function downloadEquipmentPdf(id) {
         margin: [4, 10, 10, 10],
         filename: fileName,
         image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          onclone: clonedDocument => {
+            const clonedWrapper = clonedDocument.getElementById("equipmentPdfRenderWrapper");
+            if (clonedWrapper) clonedWrapper.style.visibility = "visible";
+          }
+        },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
       };
 
       // html2canvas no captura de forma fiable elementos ubicados fuera del viewport.
       const wrapper = document.createElement("div");
-      wrapper.style.cssText = "position:fixed;top:0;left:0;width:800px;background:#fff;z-index:2147483647;pointer-events:none;";
+      wrapper.id = "equipmentPdfRenderWrapper";
+      wrapper.style.cssText = "position:fixed;top:0;left:0;width:800px;background:#fff;z-index:2147483647;pointer-events:none;visibility:hidden;";
       wrapper.innerHTML = htmlContent;
       document.body.appendChild(wrapper);
 
@@ -825,7 +996,11 @@ async function decommissionEquipment(id) {
     ? `El equipo "${name}" está actualmente asignado a ${a.asignadoA}.\n\n¿Estás seguro de darle de baja? El equipo ya no podrá volver a asignarse pero su registro e historial se conservarán.`
     : `¿Estás seguro de dar de baja el equipo "${name}"?\n\nEl equipo ya no podrá ser asignado pero su registro e historial se conservarán.`;
 
-  if (!confirm(msg)) return;
+  if (!await confirmAction({
+    title: "¿Dar de baja este equipo?",
+    message: msg,
+    confirmText: "Dar de baja"
+  })) return;
 
   try {
     await updateDoc(doc(db, equipmentCollection, id), {
@@ -834,10 +1009,36 @@ async function decommissionEquipment(id) {
       updatedAt: serverTimestamp()
     });
     toast(`El equipo "${name}" fue dado de baja correctamente.`);
-    await loadEquipment();
   } catch (err) {
     console.error(err);
     toast("No se pudo dar de baja el equipo. Verifica Firebase.");
+  }
+}
+
+async function deleteEquipment(id, button) {
+  const e = equipment.find(x => x.id === id);
+  if (!e) return;
+
+  const name = equipmentName(e) || e.tipo || "equipo";
+  const warning = e.asignaciones?.length || e.recepciones?.length
+    ? "\n\nTambién se eliminará todo el historial de asignaciones y recepciones de este equipo."
+    : "";
+  if (!await confirmAction({
+    title: "¿Eliminar este equipo?",
+    message: `Se eliminará permanentemente "${name}". Esta acción no se puede deshacer.${warning}`,
+    confirmText: "Eliminar equipo",
+    destructive: true
+  })) return;
+
+  if (button) button.disabled = true;
+  try {
+    await deleteDoc(doc(db, equipmentCollection, id));
+    toast(`El equipo "${name}" fue eliminado permanentemente.`);
+  } catch (err) {
+    console.error(err);
+    toast("No se pudo eliminar el equipo. Verifica la conexión y los permisos de Firebase.");
+  } finally {
+    if (button) button.disabled = false;
   }
 }
 
@@ -960,24 +1161,60 @@ function navigate(view) {
   document.querySelectorAll(".nav-item").forEach(b => b.classList.toggle("active",b.dataset.view===view));
   $(`${view}View`).classList.add("active");
   const titles={dashboard:"Panel general",inventory:"Inventario de equipos",assignments:"Historial de asignaciones",returns:"Historial de recepciones"};
-  $("pageTitle").textContent=titles[view]||"Panel general"; $("sidebar").classList.remove("open");
+  $("pageTitle").textContent=titles[view]||"Panel general";
+  $("newEquipmentBtn").hidden = view !== "dashboard";
+  $("sidebar").classList.remove("open");
 }
 document.querySelectorAll(".nav-item").forEach(b=>b.addEventListener("click",()=>navigate(b.dataset.view)));
 document.querySelectorAll("[data-goto]").forEach(b=>b.addEventListener("click",()=>navigate(b.dataset.goto)));
+document.querySelectorAll("dialog").forEach(dialog => {
+  dialog.addEventListener("click", event => {
+    if (event.target === dialog) dialog.close();
+  });
+});
 document.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click",()=>closeDialog(b.dataset.close)));
 document.querySelectorAll("[data-clear]").forEach(b=>b.addEventListener("click",()=>clearPad(b.dataset.clear)));
+$("confirmationCancelBtn").addEventListener("click", () => closeDialog("confirmationDialog"));
+$("confirmationAcceptBtn").addEventListener("click", () => {
+  $("confirmationDialog").dataset.confirmed = "true";
+  closeDialog("confirmationDialog");
+});
 $("newEquipmentBtn").addEventListener("click",()=>{resetEquipmentForm();openDialog("equipmentDialog")});
 $("newEquipmentBtn2").addEventListener("click",()=>{resetEquipmentForm();openDialog("equipmentDialog")});
 $("equipmentForm").addEventListener("submit",saveEquipment);
+$("equipmentPhotoInput").addEventListener("change",handleEquipmentPhotoChange);
+$("removeEquipmentPhotoBtn").addEventListener("click", () => {
+  setEquipmentPhoto();
+  $("equipmentPhotoInput").value = "";
+  $("equipmentPhotoStatus").textContent = "La foto se quitará al guardar los cambios.";
+});
 $("assignmentForm").addEventListener("submit",saveAssignment);
 $("returnForm").addEventListener("submit",saveReturn);
-["searchInput","availabilityFilter","statusFilter"].forEach(id=>$(id).addEventListener("input",renderInventory));
+["searchInput","availabilityFilter","statusFilter"].forEach(id=>$(id).addEventListener("input",()=>{
+  tablePages.inventory = 1;
+  renderInventory();
+}));
+document.addEventListener("click", event => {
+  const button = event.target.closest("[data-pagination]");
+  if (!button || button.disabled) return;
+  const table = button.dataset.pagination;
+  tablePages[table] = Number(button.dataset.page);
+  if (table === "inventory") renderInventory();
+  else if (table === "assignments") renderAssignments();
+  else if (table === "returns") renderReturns();
+});
+const scrollToTopButton = $("scrollToTopBtn");
+window.addEventListener("scroll", () => {
+  scrollToTopButton.hidden = window.scrollY < 300;
+}, { passive: true });
+scrollToTopButton.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
 document.addEventListener("click",event=>{
   const b=event.target.closest("[data-action]"); if(!b)return;
   const {action,id}=b.dataset;
   if(action==="detail")showDetail(id); if(action==="edit")editEquipment(id);
   if(action==="assign")prepareAssignment(id); if(action==="receive")prepareReturn(id);
   if(action==="decommission")decommissionEquipment(id);
+  if(action==="delete")deleteEquipment(id,b);
 });
 $("mobileMenu").addEventListener("click",()=>$("sidebar").classList.toggle("open"));
 $("exportExcelBtn")?.addEventListener("click",exportToExcel);
@@ -1001,6 +1238,6 @@ if (!configReady) {
     const app=initializeApp(firebaseConfig); db=getFirestore(app);
     $("connectionText").textContent="Conectando a Firebase…";
     $("setupNotice").hidden=true;
-    loadEquipment().then(()=>{$("connectionText").textContent="Conectado a Firebase";document.querySelector(".connection-dot").style.background="#31b66a";});
+    listenToEquipment();
   } catch(err) { console.error(err); $("connectionText").textContent="Error de conexión"; toast("No se pudo inicializar Firebase."); }
 }
