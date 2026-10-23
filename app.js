@@ -1178,6 +1178,7 @@ function navigate(view) {
   $("pageTitle").textContent=titles[view]||"Panel general";
   $("newEquipmentBtn").hidden = view !== "dashboard";
   $("sidebar").classList.remove("open");
+  $("mobileMenu").setAttribute("aria-expanded", "false");
 }
 document.querySelectorAll(".nav-item").forEach(b=>b.addEventListener("click",()=>navigate(b.dataset.view)));
 document.querySelectorAll("[data-goto]").forEach(b=>b.addEventListener("click",()=>navigate(b.dataset.goto)));
@@ -1245,7 +1246,18 @@ document.addEventListener("click",event=>{
   if(action==="decommission")decommissionEquipment(id);
   if(action==="delete")deleteEquipment(id,b);
 });
-$("mobileMenu").addEventListener("click",()=>$("sidebar").classList.toggle("open"));
+$("mobileMenu").addEventListener("click", () => {
+  const isOpen = $("sidebar").classList.toggle("open");
+  $("mobileMenu").setAttribute("aria-expanded", String(isOpen));
+});
+document.addEventListener("click", event => {
+  if (!window.matchMedia("(max-width: 760px)").matches) return;
+  const sidebar = $("sidebar");
+  if (!sidebar.classList.contains("open")) return;
+  if (sidebar.contains(event.target) || $("mobileMenu").contains(event.target)) return;
+  sidebar.classList.remove("open");
+  $("mobileMenu").setAttribute("aria-expanded", "false");
+});
 $("exportExcelBtn")?.addEventListener("click",exportToExcel);
 $("downloadPdfBtn")?.addEventListener("click", () => {
   if (currentDetailEquipmentId) downloadEquipmentPdf(currentDetailEquipmentId);
