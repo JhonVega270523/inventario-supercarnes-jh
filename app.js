@@ -9,8 +9,9 @@ let db = null;
 let equipment = [];
 let currentDetailEquipmentId = null;
 let toastTimer;
-let equipmentPhotoData = "";
+let equipmentPhotoData = [];
 let equipmentPhotoProcessing = false;
+const maxEquipmentPhotos = 4;
 const pageSize = 20;
 const tablePages = { inventory: 1, assignments: 1, returns: 1 };
 
@@ -22,13 +23,22 @@ function today() { return new Date().toLocaleDateString("en-CA"); }
 function escapeHTML(value = "") {
   return String(value).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
-function setEquipmentPhoto(photo = "") {
-  equipmentPhotoData = photo;
-  if (photo) $("equipmentPhotoPreviewImage").src = photo;
-  else $("equipmentPhotoPreviewImage").removeAttribute("src");
-  $("equipmentPhotoPreview").hidden = !photo;
-  $("removeEquipmentPhotoBtn").hidden = !photo;
-  $("equipmentPhotoPickerText").textContent = photo ? "Cambiar foto" : "Tomar o seleccionar foto";
+function getEquipmentPhotos(e) {
+  const photos = Array.isArray(e.fotos) && e.fotos.length ? e.fotos : [e.foto];
+  return photos.filter(photo => typeof photo === "string" && photo.startsWith("data:image/jpeg;base64,")).slice(0, maxEquipmentPhotos);
+}
+function setEquipmentPhotos(photos = []) {
+  equipmentPhotoData = photos.slice(0, maxEquipmentPhotos);
+  const preview = $("equipmentPhotoPreview");
+  preview.innerHTML = equipmentPhotoData.map((photo, index) => `
+    <div class="equipment-photo-card">
+      <img src="${escapeHTML(photo)}" alt="Foto ${index + 1} del equipo">
+      <button type="button" class="btn btn-outline equipment-photo-remove" data-remove-equipment-photo="${index}" aria-label="Quitar foto ${index + 1}">Quitar</button>
+    </div>`).join("");
+  preview.hidden = equipmentPhotoData.length === 0;
+  $("equipmentPhotoPickerText").textContent = `Agregar foto (${equipmentPhotoData.length}/${maxEquipmentPhotos})`;
+  $("equipmentPhotoInput").disabled = equipmentPhotoProcessing || equipmentPhotoData.length >= maxEquipmentPhotos;
+  $("equipmentPhotoInput").closest(".equipment-photo-picker").classList.toggle("disabled", $("equipmentPhotoInput").disabled);
 }
 function compressEquipmentPhoto(file) {
   if (!file.type.startsWith("image/")) {
@@ -43,7 +53,7 @@ function compressEquipmentPhoto(file) {
       try {
         const canvas = document.createElement("canvas");
         let scale = Math.min(1, 1280 / Math.max(image.naturalWidth, image.naturalHeight));
-        const maxBytes = 180 * 1024;
+        const maxBytes = 100 * 1024;
 
         for (let attempt = 0; attempt < 9; attempt++) {
           canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
@@ -82,22 +92,25 @@ function compressEquipmentPhoto(file) {
 async function handleEquipmentPhotoChange(event) {
   const file = event.target.files[0];
   if (!file) return;
+  if (equipmentPhotoData.length >= maxEquipmentPhotos) {
+    toast("Cada equipo puede tener máximo cuatro fotos.");
+    event.target.value = "";
+    return;
+  }
 
   equipmentPhotoProcessing = true;
-  event.target.disabled = true;
-  $("removeEquipmentPhotoBtn").disabled = true;
+  setEquipmentPhotos(equipmentPhotoData);
   $("equipmentPhotoStatus").textContent = "Optimizando foto…";
   try {
-    setEquipmentPhoto(await compressEquipmentPhoto(file));
-    $("equipmentPhotoStatus").textContent = "Foto lista para guardar.";
+    setEquipmentPhotos([...equipmentPhotoData, await compressEquipmentPhoto(file)]);
+    $("equipmentPhotoStatus").textContent = `Foto ${equipmentPhotoData.length} de ${maxEquipmentPhotos} lista para guardar.`;
   } catch (err) {
     console.error(err);
     $("equipmentPhotoStatus").textContent = "";
     toast(err.message || "No fue posible procesar la foto.");
   } finally {
     equipmentPhotoProcessing = false;
-    event.target.disabled = false;
-    $("removeEquipmentPhotoBtn").disabled = false;
+    setEquipmentPhotos(equipmentPhotoData);
     event.target.value = "";
   }
 }
@@ -407,7 +420,7 @@ function setupPeripheralsSelect() {
 
 function resetEquipmentForm() {
   $("equipmentForm").reset();
-  setEquipmentPhoto();
+  setEquipmentPhotos();
   $("equipmentPhotoStatus").textContent = "";
   $("equipmentId").value = "";
   $("equipmentDialogTitle").textContent = "Registrar equipo";
@@ -459,7 +472,7 @@ function editEquipment(id) {
   }
 
   $("available").value = e.disponible || "si";
-  setEquipmentPhoto(e.foto || "");
+  setEquipmentPhotos(getEquipmentPhotos(e));
   setPeripheralsValue(e.perifericos || "");
   $("observations").value = e.observaciones || "";
 
@@ -515,7 +528,8 @@ async function saveEquipment(event) {
     disponible: $("available").value,
     perifericos: $("peripherals").value.trim(),
     observaciones: $("observations").value.trim(),
-    foto: equipmentPhotoData,
+    fotos: equipmentPhotoData,
+    foto: equipmentPhotoData[0] || "",
     asignadoPor: $("assignedBy").value.trim(),
     registradoPor: $("assignedBy").value.trim(),
     updatedAt: serverTimestamp()
@@ -583,9 +597,9 @@ function showDetail(id) {
   $("historyTitle").textContent = `${equipmentName(e)} · ${e.tipo}`;
   const aList = e.asignaciones || [], rList = e.recepciones || [];
   const hasObs = Boolean(e.observaciones && e.observaciones.trim());
-  const photo = typeof e.foto === "string" && e.foto.startsWith("data:image/jpeg;base64,") ? e.foto : "";
+  const photos = getEquipmentPhotos(e);
 
-  $("historyContent").innerHTML = `${photo ? `<div class="equipment-detail-photo"><img src="${escapeHTML(photo)}" alt="Foto de ${escapeHTML(e.marca || "equipo")}"></div>` : ""}<div class="detail-grid">
+  $("historyContent").innerHTML = `${photos.length ? `<div class="equipment-detail-photos photos-${photos.length}">${photos.map((photo, index) => `<div class="equipment-detail-photo"><img src="${escapeHTML(photo)}" alt="Foto ${index + 1} de ${escapeHTML(e.marca || "equipo")}"></div>`).join("")}</div>` : ""}<div class="detail-grid">
     <div class="detail-item"><small>Marca</small><strong>${escapeHTML(e.marca)}</strong></div>
     <div class="detail-item"><small>Serial</small><strong>${escapeHTML(e.serial || e.referencia || "—")}</strong></div>
     <div class="detail-item"><small>Tipo</small><strong>${escapeHTML(e.tipo)}</strong></div>
@@ -1183,9 +1197,11 @@ $("newEquipmentBtn").addEventListener("click",()=>{resetEquipmentForm();openDial
 $("newEquipmentBtn2").addEventListener("click",()=>{resetEquipmentForm();openDialog("equipmentDialog")});
 $("equipmentForm").addEventListener("submit",saveEquipment);
 $("equipmentPhotoInput").addEventListener("change",handleEquipmentPhotoChange);
-$("removeEquipmentPhotoBtn").addEventListener("click", () => {
-  setEquipmentPhoto();
-  $("equipmentPhotoInput").value = "";
+$("equipmentPhotoPreview").addEventListener("click", event => {
+  const button = event.target.closest("[data-remove-equipment-photo]");
+  if (!button || equipmentPhotoProcessing) return;
+  const index = Number(button.dataset.removeEquipmentPhoto);
+  setEquipmentPhotos(equipmentPhotoData.filter((_, photoIndex) => photoIndex !== index));
   $("equipmentPhotoStatus").textContent = "La foto se quitará al guardar los cambios.";
 });
 $("assignmentForm").addEventListener("submit",saveAssignment);

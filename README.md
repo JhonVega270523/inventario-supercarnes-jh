@@ -2,7 +2,7 @@
 
 Aplicación responsive en HTML, CSS y JavaScript con Cloud Firestore. Incluye:
 - Registro y edición de equipos.
-- Captura o selección de una foto del equipo desde el formulario de registro, con vista previa y optimización automática.
+- Captura o selección de hasta cuatro fotos por equipo desde el formulario de registro, con vista previa, eliminación individual y optimización automática.
 - Eliminación permanente de equipos desde el inventario, con confirmación antes de borrar.
 - Confirmaciones con diálogos personalizados acordes al diseño del sistema.
 - Los formularios de equipo, asignación y recepción se cierran inmediatamente al guardar; si el guardado falla, vuelven a abrirse con los datos ingresados. Los diálogos también se pueden cerrar haciendo clic fuera de ellos.
@@ -38,14 +38,14 @@ Como se usan módulos JavaScript, abre la carpeta mediante un servidor local (no
 ## 4. Estructura de Firestore
 Colección `equipos`, un documento por equipo:
 - `marca`, `tipo`, `estado`, `disponible`, `perifericos`, `observaciones`, `asignadoPor`
-- `foto`: imagen JPEG optimizada y codificada en base64.
+- `fotos`: arreglo de hasta cuatro imágenes JPEG optimizadas y codificadas en base64. El campo `foto` conserva la primera imagen para compatibilidad con documentos existentes.
 - `asignaciones`: arreglo de registros de asignación, cada uno con datos de entrega y firma en base64.
 - `recepciones`: arreglo de registros de recepción, cada uno con datos de devolución, responsable que recibe y firma en base64.
 - `createdAt`, `updatedAt`: fechas de creación/actualización.
 
 La aplicación escucha la colección en tiempo real, por lo que los cambios guardados desde un dispositivo aparecen automáticamente en los demás dispositivos conectados. El botón **Eliminar** en el inventario borra permanentemente el documento del equipo, incluidos sus historiales de asignación y recepción; solicita confirmación antes de hacerlo.
 
-La foto del equipo se optimiza antes de guardarse en su documento de Firestore (máximo aproximado de 180 KB). Como Firestore limita el tamaño de cada documento, mantén bajo control el crecimiento de las firmas y del historial.
+Las fotos del equipo se optimizan antes de guardarse en su documento de Firestore (máximo aproximado de 100 KB por imagen). Como Firestore limita el tamaño de cada documento, mantén bajo control el crecimiento de las fotos, firmas y del historial.
 
 ## Nota sobre firmas
 Las firmas dibujadas se guardan como imagen PNG en el documento de Firestore. Si se espera un volumen alto de firmas, es mejor guardar las imágenes en Firebase Storage y almacenar en Firestore solo la URL. Los documentos tienen límites de tamaño, por lo que conviene vigilar el crecimiento del historial.

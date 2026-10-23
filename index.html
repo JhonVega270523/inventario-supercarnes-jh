@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261023_9">
+  <link rel="stylesheet" href="styles.css?v=20261023_11">
 </head>
 <body>
   <div class="app-shell">
@@ -102,20 +102,17 @@
         </label>
         <label>Disponible <select id="available" required><option value="si">Sí</option><option value="no">No</option></select></label>
         <div class="full equipment-photo-field">
-          <span class="field-label">Foto del equipo</span>
+          <span class="field-label">Fotos del equipo (máximo 4)</span>
           <div class="equipment-photo-controls">
             <label class="equipment-photo-picker" for="equipmentPhotoInput">
               <span aria-hidden="true">▧</span>
-              <span id="equipmentPhotoPickerText">Tomar o seleccionar foto</span>
+              <span id="equipmentPhotoPickerText">Agregar foto (0/4)</span>
               <input id="equipmentPhotoInput" class="equipment-photo-input" type="file" accept="image/*" capture="environment" aria-describedby="equipmentPhotoHelp equipmentPhotoStatus">
             </label>
-            <button type="button" id="removeEquipmentPhotoBtn" class="btn btn-outline equipment-photo-remove" hidden>Quitar foto</button>
           </div>
-          <p id="equipmentPhotoHelp" class="equipment-photo-help">En celulares se abrirá la cámara. La imagen se optimiza para guardarse con el equipo.</p>
+          <p id="equipmentPhotoHelp" class="equipment-photo-help">Agrega las fotos una por una. En celulares se abrirá la cámara; cada imagen se optimiza para guardarse con el equipo.</p>
           <p id="equipmentPhotoStatus" class="equipment-photo-status" role="status" aria-live="polite"></p>
-          <div id="equipmentPhotoPreview" class="equipment-photo-preview" hidden>
-            <img id="equipmentPhotoPreviewImage" alt="Vista previa de la foto del equipo">
-          </div>
+          <div id="equipmentPhotoPreview" class="equipment-photo-gallery" hidden></div>
         </div>
         <div class="full multiselect-field">
           <span class="field-label">Periféricos</span>
@@ -255,6 +252,6 @@
   <button type="button" id="scrollToTopBtn" class="scroll-to-top" aria-label="Volver arriba" title="Volver arriba" hidden>↑</button>
   <script src="xlsx.full.min.js" onerror="this.onerror=null;this.src='https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js'"></script>
   <script src="html2pdf.bundle.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'"></script>
-  <script type="module" src="app.js?v=20261023_9"></script>
+  <script type="module" src="app.js?v=20261023_11"></script>
 </body>
 </html>
