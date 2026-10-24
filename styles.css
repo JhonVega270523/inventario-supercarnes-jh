@@ -54,6 +54,18 @@
 .brand-logo-img:hover{
   transform:scale(1.02);
 }
+.brand-logo-button{
+  width:100%;
+  padding:0;
+  border:0;
+  background:transparent;
+  cursor:zoom-in;
+}
+.brand-logo-button:focus-visible{
+  outline:2px solid #fff;
+  outline-offset:4px;
+  border-radius:4px;
+}
 .brand-subtitle{
   display:inline-block;
   font-size:9.5px;
@@ -1311,6 +1323,33 @@ footer{
   color:#fff;
   font-size:18px;
 }
+.brand-logo-viewer{
+  position:fixed;
+  inset:0;
+  display:none;
+  place-items:center;
+  width:100%;
+  max-width:none;
+  height:100%;
+  max-height:none;
+  padding:64px 24px 24px;
+  border:0;
+  background:rgba(15,17,20,.94);
+  overflow:hidden;
+}
+.brand-logo-viewer[open]{
+  display:grid;
+}
+.brand-logo-viewer::backdrop{
+  background:rgba(15,17,20,.94);
+  backdrop-filter:blur(3px);
+}
+.brand-logo-viewer img{
+  display:block;
+  max-width:min(80vw,900px);
+  max-height:80vh;
+  object-fit:contain;
+}
 @media(max-width:760px){
   .equipment-photo-field{
     padding:12px;
@@ -1330,6 +1369,9 @@ footer{
     max-height:200px;
   }
   .equipment-photo-viewer{
+    padding:58px 12px 12px;
+  }
+  .brand-logo-viewer{
     padding:58px 12px 12px;
   }
 }

@@ -128,6 +128,13 @@ function equipmentName(e) {
   const s = e?.serial || e?.referencia;
   return [e?.marca, s].filter(Boolean).join(" ");
 }
+function findDuplicateEquipmentSerial(serial, currentId = "") {
+  const normalizedSerial = serial.trim().toLowerCase();
+  return equipment.find(item =>
+    item.id !== currentId &&
+    (String(item.serial || "").trim() || String(item.referencia || "").trim()).toLowerCase() === normalizedSerial
+  );
+}
 function statusPill(status = "") {
   const norm = String(status).toLowerCase();
   let c = "pill-gray";
@@ -439,6 +446,7 @@ function resetEquipmentForm() {
   $("equipmentDialogTitle").textContent = "Registrar equipo";
   $("brand").value = "";
   $("serial").value = "";
+  $("serial").setCustomValidity("");
   $("available").value = "si";
   $("equipmentStatus").value = "Bueno";
   $("type").value = "";
@@ -533,6 +541,14 @@ async function saveEquipment(event) {
     return;
   }
   const id = $("equipmentId").value;
+  const serialInput = $("serial");
+  const duplicate = findDuplicateEquipmentSerial(serialInput.value, id);
+  if (duplicate) {
+    const registeredFor = duplicate.marca ? ` para ${duplicate.marca}` : "";
+    serialInput.setCustomValidity(`Este serial ya está registrado${registeredFor}.`);
+    serialInput.reportValidity();
+    return;
+  }
   const data = {
     marca: $("brand").value.trim(),
     serial: $("serial").value.trim(),
@@ -1521,6 +1537,7 @@ document.querySelectorAll("dialog").forEach(dialog => {
   });
 });
 document.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click",()=>closeDialog(b.dataset.close)));
+$("brandLogoButton").addEventListener("click", () => $("brandLogoViewer").showModal());
 $("historyContent").addEventListener("click", event => {
   const photoButton = event.target.closest("[data-view-equipment-photo]");
   if (!photoButton) return;
@@ -1542,6 +1559,7 @@ $("confirmationAcceptBtn").addEventListener("click", () => {
 });
 $("newEquipmentBtn").addEventListener("click",()=>{resetEquipmentForm();openDialog("equipmentDialog")});
 $("newEquipmentBtn2").addEventListener("click",()=>{resetEquipmentForm();openDialog("equipmentDialog")});
+$("serial").addEventListener("input", event => event.currentTarget.setCustomValidity(""));
 $("equipmentForm").addEventListener("submit",saveEquipment);
 $("equipmentPhotoInput").addEventListener("change",handleEquipmentPhotoChange);
 $("equipmentPhotoPreview").addEventListener("click", event => {

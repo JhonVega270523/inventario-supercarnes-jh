@@ -8,13 +8,15 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261023_15">
+  <link rel="stylesheet" href="styles.css?v=20261024_16">
 </head>
 <body>
   <div class="app-shell">
     <aside class="sidebar" id="sidebar">
       <div class="brand brand-stacked">
-        <img src="Logo-JH.png" alt="Supercarnes JH" class="brand-logo-img">
+        <button type="button" class="brand-logo-button" id="brandLogoButton" aria-label="Ampliar logo de Supercarnes JH" aria-haspopup="dialog">
+          <img src="Logo-JH.png" alt="" class="brand-logo-img">
+        </button>
         <span class="brand-subtitle">GESTIÓN DE EQUIPOS</span>
       </div>
       <nav>
@@ -242,6 +244,10 @@
     <button type="button" class="icon-btn equipment-photo-viewer-close" data-close="equipmentPhotoViewer" aria-label="Cerrar foto ampliada">✕</button>
     <img id="equipmentPhotoViewerImage" alt="">
   </dialog>
+  <dialog id="brandLogoViewer" class="brand-logo-viewer" aria-label="Logo de Supercarnes JH ampliado">
+    <button type="button" class="icon-btn equipment-photo-viewer-close" data-close="brandLogoViewer" aria-label="Cerrar logo ampliado">✕</button>
+    <img src="Logo-JH.png" alt="Supercarnes JH">
+  </dialog>
   <dialog id="confirmationDialog" class="modal confirmation-dialog" aria-labelledby="confirmationTitle" aria-describedby="confirmationMessage">
     <div class="modal-form">
       <div class="confirmation-icon" id="confirmationIcon" aria-hidden="true">!</div>
@@ -258,6 +264,6 @@
   <button type="button" id="scrollToTopBtn" class="scroll-to-top" aria-label="Volver arriba" title="Volver arriba" hidden>↑</button>
   <script src="xlsx.full.min.js" onerror="this.onerror=null;this.src='https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js'"></script>
   <script src="html2pdf.bundle.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'"></script>
-  <script type="module" src="app.js?v=20261023_21"></script>
+  <script type="module" src="app.js?v=20261024_22"></script>
 </body>
 </html>
