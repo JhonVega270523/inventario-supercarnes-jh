@@ -8,12 +8,16 @@ const equipmentCollection = "equipos";
 let db = null;
 let equipment = [];
 let currentDetailEquipmentId = null;
+let incidentReturnToDetail = false;
 let toastTimer;
 let equipmentPhotoData = [];
 let equipmentPhotoProcessing = false;
+let incidentEvidenceData = [];
+let incidentEvidenceProcessing = false;
 const maxEquipmentPhotos = 4;
 const pageSize = 20;
 const tablePages = { inventory: 1, assignments: 1, returns: 1 };
+const tableSorts = { inventory: { key: "", direction: "asc" }, assignments: { key: "fecha", direction: "desc" }, returns: { key: "fecha", direction: "desc" } };
 
 function toast(message) {
   const el = $("toast"); el.textContent = message; el.classList.add("show");
@@ -45,6 +49,48 @@ function setEquipmentPhotos(photos = []) {
   $("equipmentPhotoInput").disabled = equipmentPhotoProcessing || equipmentPhotoData.length >= maxEquipmentPhotos;
   $("equipmentPhotoInput").closest(".equipment-photo-picker").classList.toggle("disabled", $("equipmentPhotoInput").disabled);
 }
+function setIncidentEvidence(photos = []) {
+  incidentEvidenceData = photos.slice(0, 2);
+  const preview = $("incidentEvidencePreview");
+  preview.innerHTML = incidentEvidenceData.map((photo, index) => `
+    <div class="equipment-photo-card">
+      <img src="${escapeHTML(photo)}" alt="Evidencia ${index + 1}">
+      <button type="button" class="btn btn-outline equipment-photo-remove" data-remove-incident-evidence="${index}" aria-label="Quitar evidencia ${index + 1}">Quitar</button>
+    </div>`).join("");
+  preview.hidden = incidentEvidenceData.length === 0;
+  $("incidentEvidenceInput").disabled = incidentEvidenceProcessing || incidentEvidenceData.length >= 2;
+}
+async function handleIncidentEvidenceChange(event) {
+  const input = event.currentTarget;
+  const files = Array.from(input.files || []);
+  if (!files.length) return;
+  const remaining = 2 - incidentEvidenceData.length;
+  if (remaining <= 0) {
+    toast("Cada novedad puede tener máximo dos imágenes de evidencia.");
+    input.value = "";
+    return;
+  }
+  incidentEvidenceProcessing = true;
+  setIncidentEvidence(incidentEvidenceData);
+  $("incidentEvidenceStatus").textContent = "Optimizando evidencia…";
+  try {
+    const selectedFiles = files.slice(0, remaining);
+    const optimized = [];
+    for (const file of selectedFiles) optimized.push(await compressEquipmentPhoto(file));
+    setIncidentEvidence([...incidentEvidenceData, ...optimized]);
+    $("incidentEvidenceStatus").textContent = files.length > remaining
+      ? `Se agregaron ${optimized.length} imágenes; el máximo por reporte es dos.`
+      : `Evidencias listas: ${incidentEvidenceData.length} de 2.`;
+  } catch (err) {
+    console.error(err);
+    $("incidentEvidenceStatus").textContent = "";
+    toast(err.message || "No fue posible procesar la evidencia.");
+  } finally {
+    incidentEvidenceProcessing = false;
+    setIncidentEvidence(incidentEvidenceData);
+    input.value = "";
+  }
+}
 function compressEquipmentPhoto(file) {
   if (!file.type.startsWith("image/")) {
     return Promise.reject(new Error("Selecciona un archivo de imagen válido."));
@@ -71,7 +117,6 @@ function compressEquipmentPhoto(file) {
               else toBlobReject(new Error("No fue posible optimizar la foto."));
             }, "image/jpeg", quality);
           });
-
           if (blob.size <= maxBytes) {
             const reader = new FileReader();
             reader.onload = () => resolve(reader.result);
@@ -158,6 +203,12 @@ function latestReturn(item) {
   const history = item.recepciones || [];
   return history.length ? history[history.length - 1] : null;
 }
+function hasOpenAssignment(item) {
+  return (item.asignaciones || []).length > (item.recepciones || []).length;
+}
+function isIncidentResponsibleChange(item) {
+  return item.tipo === "Cambio de responsable";
+}
 function openDialog(id) { $(id).showModal(); }
 function closeDialog(id) { $(id).close(); }
 
@@ -181,13 +232,14 @@ function paginateRows(rows, table, paginationId) {
   return rows.slice(startIndex, startIndex + pageSize);
 }
 
-function confirmAction({ title, message, confirmText, destructive = false }) {
+function confirmAction({ title, message, confirmText, cancelText = "Cancelar", destructive = false }) {
   const dialog = $("confirmationDialog");
   const acceptButton = $("confirmationAcceptBtn");
   $("confirmationTitle").textContent = title;
   $("confirmationMessage").textContent = message;
   $("confirmationEyebrow").textContent = destructive ? "ACCIÓN PERMANENTE" : "CONFIRMACIÓN";
   $("confirmationIcon").textContent = destructive ? "!" : "?";
+  $("confirmationCancelBtn").textContent = cancelText;
   acceptButton.textContent = confirmText;
   acceptButton.classList.toggle("btn-danger", destructive);
   dialog.dataset.confirmed = "false";
@@ -236,37 +288,64 @@ function renderAll() {
   $("statAvailable").textContent = available;
   $("statAssigned").textContent = assigned;
   $("statOther").textContent = Math.max(0, total - available - assigned);
+  renderDashboardCharts();
+  renderFilterOptions();
   renderInventory();
   renderRecent();
   renderAssignments();
   renderReturns();
 }
-function renderRecent() {
-  const rows = equipment.slice(0,5);
-  $("recentTable").innerHTML = rows.length ? rows.map(e => {
-    const a = currentAssignment(e);
-    return `<tr>
-      <td><span class="equipment-name">${escapeHTML(e.marca)}</span><span class="subtext">${escapeHTML(e.tipo)}</span></td>
-      <td><span class="serial-tag">${escapeHTML(e.serial || e.referencia || "—")}</span></td>
-      <td>${escapeHTML(e.tipo)}</td>
-      <td>${statusPill(e.estado)}</td>
-      <td>${availabilityPill(e.disponible, e.estado)}</td>
-      <td>${escapeHTML(a?.asignadoA || "—")}</td>
-      <td>
-        <div class="actions">
-          <button class="action-btn action-btn-detail" data-action="detail" data-id="${e.id}" title="Ver detalle del activo" aria-label="Ver detalle">
-            <span class="btn-icon">👁</span><span class="btn-text">Ver</span>
-          </button>
-        </div>
-      </td>
-    </tr>`;
-  }).join("") : '<tr><td colspan="7" class="empty-cell">Aún no hay equipos. Registra el primero para comenzar.</td></tr>';
+function renderFilterOptions() {
+  const options = [
+    ["statusFilter", "Todos los estados", [...new Set(equipment.map(e => e.estado || "Sin definir"))]],
+    ["typeFilter", "Todos los tipos", [...new Set(equipment.map(e => e.tipo || "Sin definir"))]],
+    ["areaFilter", "Todas las áreas", [...new Set(equipment.map(e => currentAssignment(e)?.area).filter(Boolean))]]
+  ];
+  options.forEach(([id, placeholder, values]) => {
+    const select = $(id);
+    const selected = select.value;
+    select.replaceChildren(new Option(placeholder, ""));
+    values.sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" })).forEach(value => select.add(new Option(value, value)));
+    if (values.includes(selected)) select.value = selected;
+  });
 }
-function renderInventory() {
+function renderBarChart(containerId, entries, filterKind) {
+  const container = $(containerId);
+  const max = Math.max(1, ...entries.map(([, count]) => count));
+  container.innerHTML = entries.length ? entries.map(([label, count]) => {
+    const width = Math.round(count / max * 100);
+    return `<button type="button" class="chart-row" data-chart-filter="${filterKind}" data-chart-value="${escapeHTML(label)}" aria-label="Filtrar por ${escapeHTML(label)}: ${count} equipo${count === 1 ? "" : "s"}">
+      <span class="chart-row-label">${escapeHTML(label)}</span><span class="chart-track" aria-hidden="true"><span class="chart-bar" style="width:${width}%"></span></span><strong>${count}</strong>
+    </button>`;
+  }).join("") : '<p class="chart-empty">No hay datos para mostrar todavía.</p>';
+}
+function renderDashboardCharts() {
+  const countsFor = values => [...values.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "es"));
+  const statuses = new Map();
+  const types = new Map();
+  const areas = new Map();
+  equipment.forEach(item => {
+    const status = item.estado || "Sin definir";
+    const type = item.tipo || "Sin definir";
+    statuses.set(status, (statuses.get(status) || 0) + 1);
+    types.set(type, (types.get(type) || 0) + 1);
+    const activeAssignment = item.disponible === "no" &&
+      !["de baja", "en mantenimiento"].includes((item.estado || "").toLowerCase())
+      ? currentAssignment(item)
+      : null;
+    if (activeAssignment?.area) areas.set(activeAssignment.area, (areas.get(activeAssignment.area) || 0) + 1);
+  });
+  renderBarChart("statusChart", countsFor(statuses), "status");
+  renderBarChart("typeChart", countsFor(types).slice(0, 6), "type");
+  renderBarChart("areaChart", countsFor(areas).slice(0, 6), "area");
+}
+function filteredInventory() {
   const term = $("searchInput").value.trim().toLowerCase();
   const avail = $("availabilityFilter").value;
   const status = $("statusFilter").value.trim().toLowerCase();
-  const filtered = equipment.filter(e => {
+  const type = $("typeFilter").value.trim().toLowerCase();
+  const area = $("areaFilter").value.trim().toLowerCase();
+  return equipment.filter(e => {
     const a = currentAssignment(e);
     const text = [e.marca,e.serial,e.referencia,e.tipo,e.perifericos,e.observaciones,e.registradoPor || e.asignadoPor,a?.asignadoA,a?.area].filter(Boolean).join(" ").toLowerCase();
 
@@ -279,61 +358,102 @@ function renderInventory() {
       matchesAvail = e.disponible === "no" && (e.estado || "").toLowerCase() !== "de baja";
     }
 
-    const matchesStatus = !status || (e.estado || "").toLowerCase() === status;
-    const matchesTerm = !term || text.includes(term);
-
-    return matchesTerm && matchesAvail && matchesStatus;
+    return (!term || text.includes(term)) &&
+      matchesAvail &&
+      (!status || (e.estado || "Sin definir").toLowerCase() === status) &&
+      (!type || (e.tipo || "Sin definir").toLowerCase() === type) &&
+      (!area || (a?.area || "").toLowerCase() === area);
+  });
+}
+function sortRows(rows, table, getValue) {
+  const { key, direction } = tableSorts[table];
+  if (!key) return rows;
+  return rows.sort((a, b) => {
+    const first = String(getValue(a, key) ?? "");
+    const second = String(getValue(b, key) ?? "");
+    const result = first.localeCompare(second, "es", { numeric: true, sensitivity: "base" });
+    return (direction === "asc" ? result : -result);
+  });
+}
+function updateSortHeaders() {
+  document.querySelectorAll(".table-sort").forEach(button => {
+    const { key, direction } = tableSorts[button.dataset.sortTable];
+    if (!button.dataset.label) button.dataset.label = button.textContent.trim();
+    const active = key === button.dataset.sortKey;
+    button.innerHTML = `${escapeHTML(button.dataset.label)}<span aria-hidden="true">${active ? (direction === "asc" ? " ↑" : " ↓") : " ↕"}</span>`;
+    button.setAttribute("aria-pressed", String(active));
+    button.closest("th").setAttribute("aria-sort", active ? (direction === "asc" ? "ascending" : "descending") : "none");
+  });
+}
+function equipmentActions(item, { includePrimary = true } = {}) {
+  const id = escapeHTML(item.id);
+  const name = escapeHTML(`${item.marca || "Equipo"} ${item.serial || item.referencia || ""}`.trim());
+  const isDecommissioned = (item.estado || "").toLowerCase() === "de baja";
+  const primaryAction = item.disponible === "si"
+    ? `<button class="action-btn action-btn-primary action-btn-assign" data-action="assign" data-id="${id}" aria-label="Asignar ${name}"><span class="btn-icon" aria-hidden="true">↗</span><span class="btn-text">Asignar</span></button>`
+    : item.noDisponiblePorNovedad && !hasOpenAssignment(item)
+      ? '<span class="pill pill-amber review-label">En revisión</span>'
+      : `<button class="action-btn action-btn-primary action-btn-receive" data-action="receive" data-id="${id}" aria-label="Recibir ${name}"><span class="btn-icon" aria-hidden="true">↙</span><span class="btn-text">Recibir</span></button>`;
+  const secondaryActions = `
+    <button class="action-btn action-menu-item action-btn-edit" data-action="edit" data-id="${id}"><span class="btn-icon" aria-hidden="true">✎</span>Editar</button>
+    <button class="action-btn action-menu-item action-btn-incident" data-action="incident" data-id="${id}"><span class="btn-icon" aria-hidden="true">!</span>Reportar novedad</button>
+    ${isDecommissioned ? "" : `<button class="action-btn action-menu-item action-btn-baja" data-action="decommission" data-id="${id}"><span class="btn-icon" aria-hidden="true">✕</span>Dar de baja</button>`}
+    <button class="action-btn action-menu-item action-btn-delete" data-action="delete" data-id="${id}"><span class="btn-icon" aria-hidden="true">▣</span>Eliminar</button>`;
+  return `<div class="actions">
+    <button class="action-btn action-btn-primary action-btn-detail" data-action="detail" data-id="${id}" aria-label="Ver detalle de ${name}"><span class="btn-icon" aria-hidden="true">◉</span><span class="btn-text">Ver</span></button>
+    ${includePrimary && !isDecommissioned ? primaryAction : ""}
+    <details class="action-menu">
+      <summary aria-label="Más acciones para ${name}" title="Más acciones">⋮</summary>
+      <div class="action-menu-items">${secondaryActions}</div>
+    </details>
+  </div>`;
+}
+function renderRecent() {
+  const rows = equipment.slice(0,5);
+  $("recentTable").innerHTML = rows.length ? rows.map(e => {
+    const a = currentAssignment(e);
+    return `<tr>
+      <td data-label="Equipo"><span class="equipment-name">${escapeHTML(e.marca)}</span><span class="subtext">${escapeHTML(e.tipo)}</span></td>
+      <td data-label="Serial"><span class="serial-tag">${escapeHTML(e.serial || e.referencia || "—")}</span></td>
+      <td data-label="Tipo">${escapeHTML(e.tipo)}</td>
+      <td data-label="Estado">${statusPill(e.estado)}</td>
+      <td data-label="Disponibilidad">${availabilityPill(e.disponible, e.estado)}</td>
+      <td data-label="Asignado a">${escapeHTML(a?.asignadoA || "—")}</td>
+      <td data-label="Acciones">${equipmentActions(e)}</td>
+    </tr>`;
+  }).join("") : '<tr><td colspan="7" class="empty-cell">Aún no hay equipos. Registra el primero para comenzar.</td></tr>';
+}
+function renderInventory() {
+  const filtered = sortRows(filteredInventory(), "inventory", (e, key) => {
+    const assignment = currentAssignment(e);
+    const values = { marca: e.marca, serial: e.serial || e.referencia, tipo: e.tipo, estado: e.estado, disponible: e.disponible, asignadoA: assignment?.asignadoA, fecha: assignment?.fecha };
+    return values[key];
   });
   $("inventoryCount").textContent = `${filtered.length} equipo${filtered.length === 1 ? "" : "s"}${filtered.length !== equipment.length ? ` de ${equipment.length}` : ""}`;
   const pageRows = paginateRows(filtered, "inventory", "inventoryPagination");
   $("inventoryTable").innerHTML = pageRows.length ? pageRows.map(e => {
     const a = currentAssignment(e);
-    const isBaja = (e.estado || "").toLowerCase() === "de baja";
-    let actionBtns = `
-      <button class="action-btn action-btn-detail" data-action="detail" data-id="${e.id}" title="Ver detalle del activo" aria-label="Ver detalle">
-        <span class="btn-icon">👁</span><span class="btn-text">Ver</span>
-      </button>
-      <button class="action-btn action-btn-edit" data-action="edit" data-id="${e.id}" title="Editar equipo" aria-label="Editar">
-        <span class="btn-icon">✎</span><span class="btn-text">Editar</span>
-      </button>`;
-    if (!isBaja) {
-      if (e.disponible === "si") {
-        actionBtns += `
-          <button class="action-btn action-btn-assign" data-action="assign" data-id="${e.id}" title="Asignar equipo" aria-label="Asignar">
-            <span class="btn-icon">↗</span><span class="btn-text">Asignar</span>
-          </button>`;
-      } else {
-        actionBtns += `
-          <button class="action-btn action-btn-receive" data-action="receive" data-id="${e.id}" title="Recibir equipo devuelto" aria-label="Recibir">
-            <span class="btn-icon">↙</span><span class="btn-text">Recibir</span>
-          </button>`;
-      }
-      actionBtns += `
-        <button class="action-btn action-btn-baja" data-action="decommission" data-id="${e.id}" title="Dar de baja al equipo" aria-label="Dar de baja">
-          <span class="btn-icon">✕</span><span class="btn-text">Dar de baja</span>
-        </button>`;
-    }
-    actionBtns += `
-      <button class="action-btn action-btn-delete" data-action="delete" data-id="${e.id}" title="Eliminar permanentemente el equipo" aria-label="Eliminar equipo">
-        <span class="btn-icon">🗑</span><span class="btn-text">Eliminar</span>
-      </button>`;
     return `<tr>
-      <td><span class="equipment-name">${escapeHTML(e.marca || "—")}</span></td>
-      <td><span class="serial-tag">${escapeHTML(e.serial || e.referencia || "—")}</span></td>
-      <td>${escapeHTML(e.tipo || "—")}</td>
-      <td>${statusPill(e.estado)}</td>
-      <td>${escapeHTML(e.perifericos || "—")}</td>
-      <td>${availabilityPill(e.disponible, e.estado)}</td>
-      <td>${escapeHTML(a?.asignadoA || "—")}<span class="subtext">${escapeHTML(a?.area || "")}</span></td>
-      <td>${dateText(a?.fecha)}</td>
-      <td><div class="actions">${actionBtns}</div></td>
+      <td data-label="Equipo"><span class="equipment-name">${escapeHTML(e.marca || "—")}</span></td>
+      <td data-label="Serial"><span class="serial-tag">${escapeHTML(e.serial || e.referencia || "—")}</span></td>
+      <td data-label="Tipo">${escapeHTML(e.tipo || "—")}</td>
+      <td data-label="Estado">${statusPill(e.estado)}</td>
+      <td data-label="Periféricos">${escapeHTML(e.perifericos || "—")}</td>
+      <td data-label="Disponibilidad">${availabilityPill(e.disponible, e.estado)}</td>
+      <td data-label="Asignado a">${escapeHTML(a?.asignadoA || "—")}<span class="subtext">${escapeHTML(a?.area || "")}</span></td>
+      <td data-label="Fecha asignación">${dateText(a?.fecha)}</td>
+      <td data-label="Acciones">${equipmentActions(e)}</td>
     </tr>`;
-  }).join("") : '<tr><td colspan="9" class="empty-cell">No se encontraron equipos con esos filtros.</td></tr>';
+  }).join("") : `<tr><td colspan="9" class="empty-cell">No se encontraron equipos con esos filtros.<br><button type="button" class="btn-link-action" data-clear-filters>Limpiar filtros</button></td></tr>`;
+  updateSortHeaders();
 }
 function renderAssignments() {
   const rows = [];
   equipment.forEach(e => (e.asignaciones || []).forEach((a,index) => rows.push({e,a,index})));
-  rows.sort((x,y) => (y.a.fecha || "").localeCompare(x.a.fecha || ""));
+  sortRows(rows, "assignments", ({ e, a }, key) => {
+    const values = { marca: e.marca, serial: e.serial || e.referencia, asignadoA: a.asignadoA, area: a.area, fecha: a.fecha, estado: a.estado, entregadoPor: a.entregadoPor || a.recibidoPor };
+    return values[key];
+  });
   const pageRows = paginateRows(rows, "assignments", "assignmentsPagination");
   $("assignmentsTable").innerHTML = pageRows.length ? pageRows.map(({e,a,index}) => `<tr>
     <td><span class="equipment-name">${escapeHTML(e.marca)}</span><span class="subtext">${escapeHTML(e.tipo)}</span></td>
@@ -345,11 +465,15 @@ function renderAssignments() {
     <td>${escapeHTML(a.entregadoPor || a.recibidoPor || "—")}</td>
     <td><button class="action-btn action-btn-pdf" data-action="print-assignment" data-id="${e.id}" data-record-index="${index}" title="Reimprimir asignación en PDF">PDF</button></td>
   </tr>`).join("") : '<tr><td colspan="8" class="empty-cell">No hay asignaciones registradas.</td></tr>';
+  updateSortHeaders();
 }
 function renderReturns() {
   const rows = [];
   equipment.forEach(e => (e.recepciones || []).forEach((r,index) => rows.push({e,r,index})));
-  rows.sort((x,y) => (y.r.fecha || "").localeCompare(x.r.fecha || ""));
+  sortRows(rows, "returns", ({ e, r }, key) => {
+    const values = { marca: e.marca, serial: e.serial || e.referencia, recibidoDe: r.recibidoDe, recibidoPor: r.recibidoPor, area: r.area, fecha: r.fecha, estado: r.estado };
+    return values[key];
+  });
   const pageRows = paginateRows(rows, "returns", "returnsPagination");
   $("returnsTable").innerHTML = pageRows.length ? pageRows.map(({e,r,index}) => `<tr>
     <td><span class="equipment-name">${escapeHTML(e.marca)}</span><span class="subtext">${escapeHTML(e.tipo)}</span></td>
@@ -361,6 +485,7 @@ function renderReturns() {
     <td>${statusPill(r.estado)}</td>
     <td><button class="action-btn action-btn-pdf" data-action="print-return" data-id="${e.id}" data-record-index="${index}" title="Reimprimir recepción en PDF">PDF</button></td>
   </tr>`).join("") : '<tr><td colspan="8" class="empty-cell">No hay recepciones registradas.</td></tr>';
+  updateSortHeaders();
 }
 function updatePeripheralsDisplay() {
   const container = $("peripheralsDisplay");
@@ -534,6 +659,86 @@ function prepareReturn(id) {
   $("receivedArea").value = a?.area || ""; $("receivedPeripherals").value = a?.perifericos || e.perifericos || "";
   $("receivedCondition").value = e.estado || "Bueno"; openDialog("returnDialog");
 }
+function updateIncidentResponsibleFields() {
+  const isChange = $("incidentType").value === "Cambio de responsable";
+  const fields = $("incidentResponsibleFields");
+  fields.hidden = !isChange;
+  $("incidentPreviousResponsible").required = isChange;
+  $("incidentNewResponsible").required = isChange;
+}
+function prepareIncident(id) {
+  const e = equipment.find(item => item.id === id);
+  if (!e) return;
+  $("incidentForm").reset();
+  $("incidentEquipmentId").value = id;
+  $("incidentEquipmentLabel").textContent = `${equipmentName(e)} · ${e.tipo}`;
+  $("incidentDate").value = today();
+  $("incidentEvidenceStatus").textContent = "";
+  setIncidentEvidence();
+  updateIncidentResponsibleFields();
+  incidentReturnToDetail = $("historyDialog").open;
+  if (incidentReturnToDetail) closeDialog("historyDialog");
+  openDialog("incidentDialog");
+}
+async function saveIncident(event) {
+  event.preventDefault();
+  if (incidentEvidenceProcessing) {
+    toast("Espera a que termine de procesarse la evidencia.");
+    return;
+  }
+  const id = $("incidentEquipmentId").value;
+  const e = equipment.find(item => item.id === id);
+  if (!e) {
+    toast("No se encontró el equipo para registrar la novedad.");
+    return;
+  }
+  if (!db) {
+    toast("Configura Firebase para guardar el reporte.");
+    return;
+  }
+  const type = $("incidentType").value;
+  const askUnavailable = ["Daño", "Pérdida", "Robo"].includes(type);
+  const markUnavailable = askUnavailable && await confirmAction({
+    title: "¿Marcar el equipo como no disponible?",
+    message: `El reporte de ${type.toLowerCase()} se guardará. Puedes además impedir nuevas asignaciones marcando "${equipmentName(e)}" como no disponible.`,
+    confirmText: "Guardar y marcar no disponible",
+    cancelText: "Guardar solo reporte"
+  });
+  const incident = {
+    tipo: type,
+    fecha: $("incidentDate").value,
+    reportadoPor: $("incidentReportedBy").value.trim(),
+    descripcion: $("incidentDescription").value.trim(),
+    responsableAnterior: $("incidentPreviousResponsible").value.trim(),
+    responsableNuevo: $("incidentNewResponsible").value.trim(),
+    evidencias: incidentEvidenceData,
+    registradoEn: new Date().toISOString()
+  };
+  incidentReturnToDetail = false;
+  closeDialog("incidentDialog");
+  toast("Guardando reporte de novedad...");
+  try {
+    const changes = {
+      novedades: [...(e.novedades || []), incident],
+      noDisponiblePorNovedad: markUnavailable || Boolean(e.noDisponiblePorNovedad),
+      updatedAt: serverTimestamp()
+    };
+    if (markUnavailable) changes.disponible = "no";
+    await updateDoc(doc(db, equipmentCollection, id), changes);
+    e.novedades = changes.novedades;
+    e.noDisponiblePorNovedad = changes.noDisponiblePorNovedad;
+    if (markUnavailable) e.disponible = "no";
+    renderAll();
+    toast(markUnavailable
+      ? "Reporte guardado y equipo marcado como no disponible."
+      : "Reporte de novedad guardado correctamente.");
+    showDetail(id);
+  } catch (err) {
+    console.error(err);
+    openDialog("incidentDialog");
+    toast("No se pudo guardar el reporte. Verifica la conexión y las reglas de Firebase.");
+  }
+}
 async function saveEquipment(event) {
   event.preventDefault();
   if (equipmentPhotoProcessing) {
@@ -556,6 +761,7 @@ async function saveEquipment(event) {
     tipo: $("type").value.trim(),
     estado: $("equipmentStatus").value,
     disponible: $("available").value,
+    noDisponiblePorNovedad: $("available").value === "si" ? false : equipment.find(item => item.id === id)?.noDisponiblePorNovedad || false,
     perifericos: $("peripherals").value.trim(),
     observaciones: $("observations").value.trim(),
     fotos: equipmentPhotoData,
@@ -632,7 +838,7 @@ async function saveReturn(event) {
   closeDialog("returnDialog");
   toast("Guardando recepción...");
   try {
-    await updateDoc(doc(db,equipmentCollection,id), {disponible:"si", estado:r.estado, perifericos:r.perifericos, recepciones:[...(e.recepciones || []),r], updatedAt:serverTimestamp()});
+    await updateDoc(doc(db,equipmentCollection,id), {disponible:"si", noDisponiblePorNovedad:false, estado:r.estado, perifericos:r.perifericos, recepciones:[...(e.recepciones || []),r], updatedAt:serverTimestamp()});
     toast("Recepción guardada. El equipo quedó disponible.");
   } catch(err) {
     console.error(err);
@@ -644,16 +850,58 @@ function showDetail(id) {
   const e = equipment.find(x => x.id === id); if (!e) return;
   currentDetailEquipmentId = id;
   $("historyTitle").textContent = `${equipmentName(e)} · ${e.tipo}`;
-  const aList = e.asignaciones || [], rList = e.recepciones || [];
+  const aList = e.asignaciones || [], rList = e.recepciones || [], incidentList = e.novedades || [];
   const hasObs = Boolean(e.observaciones && e.observaciones.trim());
   const photos = getEquipmentPhotos(e);
+  const timeline = [
+    ...aList.map(item => ({ type: "assignment", date: item.fecha, timestamp: item.registradoEn, item })),
+    ...rList.map(item => ({ type: "return", date: item.fecha, timestamp: item.registradoEn, item })),
+    ...incidentList.map(item => ({ type: "incident", date: item.fecha, timestamp: item.registradoEn, item }))
+  ].sort((a, b) => new Date(b.date || b.timestamp || 0).getTime() - new Date(a.date || a.timestamp || 0).getTime());
+  const timelineHtml = timeline.length ? timeline.map(event => {
+    const item = event.item;
+    const isAssignment = event.type === "assignment";
+    const isReturn = event.type === "return";
+    const date = event.date ? dateText(event.date) : (event.timestamp ? new Date(event.timestamp).toLocaleDateString("es-CO") : "Fecha no registrada");
+    const title = isAssignment
+      ? `Asignado a ${item.asignadoA || "—"}`
+      : isReturn
+        ? `Recibido de ${item.recibidoDe || "—"}`
+        : `Novedad: ${item.tipo || "Otro"}`;
+    const detail = isAssignment
+      ? `Área: ${item.area || "—"} · Entregado por: ${item.entregadoPor || item.recibidoPor || "—"}`
+      : isReturn
+        ? `Área: ${item.area || "—"} · Recibido por: ${item.recibidoPor || "—"}`
+        : item.descripcion || "Sin descripción";
+    const reporter = event.type === "incident" ? `<p>Reportado por: ${escapeHTML(item.reportadoPor || "—")}</p>` : "";
+    return `<article class="timeline-entry ${isAssignment ? "timeline-assignment" : isReturn ? "timeline-return" : "timeline-incident"}">
+      <span class="timeline-marker" aria-hidden="true">${isAssignment ? "↗" : isReturn ? "↙" : "!"}</span>
+      <div class="timeline-card"><div class="timeline-card-heading"><strong>${escapeHTML(title)}</strong><time>${escapeHTML(date)}</time></div>
+        <p>${escapeHTML(detail)}</p>${reporter}${isIncidentResponsibleChange(item) ? `<p>Responsable: ${escapeHTML(item.responsableAnterior)} → ${escapeHTML(item.responsableNuevo)}</p>` : ""}
+        ${isAssignment || isReturn ? `<p>Estado: ${escapeHTML(item.estado || "—")} · Periféricos: ${escapeHTML(item.perifericos || "—")}</p>` : ""}
+      </div>
+    </article>`;
+  }).join("") : '<p class="empty-history">Este equipo aún no tiene movimientos.</p>';
+  const incidentHistory = incidentList.length ? [...incidentList].reverse().map(item => {
+    const evidence = (item.evidencias || []).filter(photo => typeof photo === "string" && photo.startsWith("data:image/jpeg;base64,"));
+    const evidenceHtml = evidence.length ? `<div class="incident-evidence-gallery">${evidence.map((photo, photoIndex) => {
+      return `<button type="button" class="equipment-detail-photo" data-view-equipment-photo="${photoIndex}" aria-label="Ampliar evidencia ${photoIndex + 1}"><img src="${escapeHTML(photo)}" alt="Evidencia ${photoIndex + 1} del reporte"></button>`;
+    }).join("")}</div>` : "";
+    return `<article class="incident-history-entry">
+      <div class="incident-history-heading"><strong>${escapeHTML(item.tipo || "Novedad")}</strong><time>${dateText(item.fecha)}</time></div>
+      <p>${escapeHTML(item.descripcion || "Sin descripción")}</p>
+      <p class="incident-meta">Reportado por: ${escapeHTML(item.reportadoPor || "—")}</p>
+      ${isIncidentResponsibleChange(item) ? `<p class="incident-meta">Responsable anterior: ${escapeHTML(item.responsableAnterior)} · Nuevo responsable: ${escapeHTML(item.responsableNuevo)}</p>` : ""}
+      ${evidenceHtml}
+    </article>`;
+  }).join("") : '<p class="empty-history">Sin novedades registradas.</p>';
 
   $("historyContent").innerHTML = `${photos.length ? `<div class="equipment-detail-photos photos-${photos.length}">${photos.map((photo, index) => `<button type="button" class="equipment-detail-photo" data-view-equipment-photo="${index}" aria-label="Ampliar foto ${index + 1}"><img src="${escapeHTML(photo)}" alt="Foto ${index + 1} de ${escapeHTML(e.marca || "equipo")}"></button>`).join("")}</div>` : ""}<div class="detail-grid">
     <div class="detail-item"><small>Marca</small><strong>${escapeHTML(e.marca)}</strong></div>
     <div class="detail-item"><small>Serial</small><strong>${escapeHTML(e.serial || e.referencia || "—")}</strong></div>
     <div class="detail-item"><small>Tipo</small><strong>${escapeHTML(e.tipo)}</strong></div>
     <div class="detail-item"><small>Estado actual</small><strong>${escapeHTML(e.estado)}</strong></div>
-    <div class="detail-item"><small>Disponibilidad</small><strong>${availabilityPill(e.disponible, e.estado)}</strong></div>
+    <div class="detail-item"><small>Disponibilidad</small><strong>${availabilityPill(e.disponible, e.estado)}</strong>${e.noDisponiblePorNovedad ? '<span class="subtext">Bloqueado por una novedad; puedes restablecerlo al editar el equipo.</span>' : ""}</div>
     <div class="detail-item"><small>Periféricos actuales</small><strong>${escapeHTML(e.perifericos || "—")}</strong></div>
     <div class="detail-item full"><small>Registrado por</small><strong>${escapeHTML(e.registradoPor || e.asignadoPor || "—")}</strong></div>
     <div class="detail-item full detail-notes-card">
@@ -673,6 +921,8 @@ function showDetail(id) {
       </div>
     </div>
   </div>
+  <section class="history-block timeline-block"><h3>Línea de tiempo · ${timeline.length} movimiento${timeline.length === 1 ? "" : "s"}</h3><div class="equipment-timeline">${timelineHtml}</div></section>
+  <section class="history-block incident-history"><h3>Novedades e incidentes (${incidentList.length})</h3>${incidentHistory}</section>
   <div class="history-block"><h3>Historial de asignaciones (${aList.length})</h3>${aList.length ? [...aList].reverse().map(a => {
     const deliveryImg = a.firmaEntrega ? `<div class="sig-block"><small>Firma de quien entrega:</small><img class="signature-preview" src="${a.firmaEntrega}" alt="Firma de quien entrega"></div>` : "";
     const receiveImg = (a.firmaRecibe || a.firma) ? `<div class="sig-block"><small>Firma de quien recibe:</small><img class="signature-preview" src="${a.firmaRecibe || a.firma}" alt="Firma de quien recibe"></div>` : "";
@@ -693,6 +943,7 @@ async function downloadEquipmentPdf(id) {
   const curAssign = currentAssignment(e);
   const aList = e.asignaciones || [];
   const rList = e.recepciones || [];
+  const incidentList = e.novedades || [];
   const cleanBrand = (e.marca || "JH").replace(/[^\w-]/g, "_");
   const cleanSerial = (e.serial || e.referencia || "SN").replace(/[^\w-]/g, "_");
   const fileName = `Ficha_Activo_${cleanBrand}_${cleanSerial}_${today()}.pdf`;
@@ -804,6 +1055,24 @@ async function downloadEquipmentPdf(id) {
       </div>
     </div>`;
   }
+  const incidentSection = incidentList.length ? `
+    <div class="pdf-incidents-section" style="margin-top:12px;break-before:page;page-break-before:always;">
+      <h2 style="font-size:12.5px;font-weight:800;color:#b5121b;text-transform:uppercase;letter-spacing:.8px;border-bottom:1.5px solid #f1f5f9;padding-bottom:5px;margin:0 0 10px;">5. NOVEDADES E INCIDENTES (${incidentList.length})</h2>
+      ${incidentList.slice().reverse().map(item => {
+        const evidence = (item.evidencias || []).filter(photo => typeof photo === "string" && photo.startsWith("data:image/jpeg;base64,"));
+        const evidenceHtml = evidence.length
+          ? `<div style="display:flex;gap:8px;margin-top:7px;">${evidence.map((photo, index) => `<img src="${escapeHTML(photo)}" alt="Evidencia ${index + 1}" style="width:100px;height:76px;object-fit:cover;border:1px solid #e2e8f0;border-radius:5px;">`).join("")}</div>`
+          : "";
+        const responsible = isIncidentResponsibleChange(item)
+          ? `<p style="margin:3px 0 0;font-size:10px;color:#475569;">Responsable anterior: ${escapeHTML(item.responsableAnterior || "—")} · Nuevo responsable: ${escapeHTML(item.responsableNuevo || "—")}</p>`
+          : "";
+        return `<article style="margin:7px 0;padding:9px 11px;border:1px solid #e2e8f0;border-left:3px solid #a56300;border-radius:0 6px 6px 0;break-inside:avoid;page-break-inside:avoid;">
+          <strong style="font-size:10.5px;">${escapeHTML(item.tipo || "Novedad")}</strong><span style="float:right;font-size:9px;color:#64748b;">${dateText(item.fecha)}</span>
+          <p style="margin:5px 0 0;font-size:10px;line-height:1.5;white-space:pre-wrap;">${escapeHTML(item.descripcion || "Sin descripción")}</p>
+          <p style="margin:3px 0 0;font-size:9px;color:#64748b;">Reportado por: ${escapeHTML(item.reportadoPor || "—")}</p>${responsible}${evidenceHtml}
+        </article>`;
+      }).join("")}
+    </div>` : "";
 
   // — Construir HTML completo como string (no depende del DOM para estilos) —
   const htmlContent = `<!DOCTYPE html>
@@ -857,12 +1126,14 @@ async function downloadEquipmentPdf(id) {
     </ol>
   </div>
 
-  <div style="margin-top:10px;break-inside:avoid;page-break-inside:avoid;">
+  <div class="pdf-signature-section" style="margin-top:10px;break-inside:avoid;page-break-inside:avoid;">
     <h2 style="font-size:12.5px;font-weight:800;color:#b5121b;text-transform:uppercase;letter-spacing:.8px;border-bottom:1.5px solid #f1f5f9;padding-bottom:5px;margin:0 0 10px;">4. CONSTANCIA Y FIRMAS DE CONFORMIDAD</h2>
     <div style="display:flex;gap:12px;justify-content:space-between;margin-top:6px;break-inside:avoid;page-break-inside:avoid;">
       ${sigCardsHtml}
     </div>
   </div>
+
+  ${incidentSection}
 
   <div style="border-top:1px solid #e2e8f0;padding-top:6px;margin-top:10px;text-align:center;font-size:9.5px;color:#94a3b8;">
     Supercarnes JH · Sistema de Gestión y Control de Equipos · Documento de Control Interno
@@ -874,14 +1145,24 @@ async function downloadEquipmentPdf(id) {
 
   try {
     if (typeof window.html2pdf !== "undefined") {
+      // html2canvas debe medir el documento completo y no heredar el scroll de la página principal.
+      const wrapper = document.createElement("div");
+      wrapper.id = "equipmentPdfRenderWrapper";
+      wrapper.style.cssText = "position:fixed;top:0;left:0;width:800px;background:#fff;z-index:2147483647;pointer-events:none;visibility:hidden;";
+      wrapper.innerHTML = htmlContent;
+      document.body.appendChild(wrapper);
+      const target = wrapper.querySelector("div") || wrapper;
       const opt = {
         margin: [4, 10, 10, 10],
         filename: fileName,
         image: { type: "jpeg", quality: 0.98 },
+        pagebreak: { mode: ["css", "legacy"], before: [".pdf-incidents-section"], avoid: [".pdf-signature-section"] },
         html2canvas: {
           scale: 2,
           useCORS: true,
           logging: false,
+          scrollY: 0,
+          windowHeight: target.scrollHeight,
           onclone: clonedDocument => {
             const clonedWrapper = clonedDocument.getElementById("equipmentPdfRenderWrapper");
             if (clonedWrapper) clonedWrapper.style.visibility = "visible";
@@ -889,15 +1170,6 @@ async function downloadEquipmentPdf(id) {
         },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
       };
-
-      // html2canvas no captura de forma fiable elementos ubicados fuera del viewport.
-      const wrapper = document.createElement("div");
-      wrapper.id = "equipmentPdfRenderWrapper";
-      wrapper.style.cssText = "position:fixed;top:0;left:0;width:800px;background:#fff;z-index:2147483647;pointer-events:none;visibility:hidden;";
-      wrapper.innerHTML = htmlContent;
-      document.body.appendChild(wrapper);
-
-      const target = wrapper.querySelector("div") || wrapper;
       try {
         await window.html2pdf().set(opt).from(target).save();
         toast("PDF descargado correctamente.");
@@ -1226,8 +1498,8 @@ async function deleteEquipment(id, button) {
   if (!e) return;
 
   const name = equipmentName(e) || e.tipo || "equipo";
-  const warning = e.asignaciones?.length || e.recepciones?.length
-    ? "\n\nTambién se eliminará todo el historial de asignaciones y recepciones de este equipo."
+  const warning = e.asignaciones?.length || e.recepciones?.length || e.novedades?.length
+    ? "\n\nTambién se eliminarán los historiales de asignaciones, recepciones y novedades de este equipo."
     : "";
   if (!await confirmAction({
     title: "¿Eliminar este equipo?",
@@ -1379,24 +1651,7 @@ function createExcelFile(headers, rows, title, subtitle, sheetName = "Inventario
 }
 
 function exportToExcel() {
-  const term = $("searchInput").value.trim().toLowerCase();
-  const avail = $("availabilityFilter").value;
-  const status = $("statusFilter").value.trim().toLowerCase();
-
-  const itemsToExport = equipment.filter(e => {
-    const a = currentAssignment(e);
-    const text = [e.marca, e.serial, e.referencia, e.tipo, e.perifericos, e.registradoPor || e.asignadoPor, a?.asignadoA, a?.area].filter(Boolean).join(" ").toLowerCase();
-
-    let matchesAvail = true;
-    if (avail === "baja") matchesAvail = (e.estado || "").toLowerCase() === "de baja";
-    else if (avail === "si") matchesAvail = e.disponible === "si" && (e.estado || "").toLowerCase() !== "de baja";
-    else if (avail === "no") matchesAvail = e.disponible === "no" && (e.estado || "").toLowerCase() !== "de baja";
-
-    const matchesStatus = !status || (e.estado || "").toLowerCase() === status;
-    const matchesTerm = !term || text.includes(term);
-
-    return matchesTerm && matchesAvail && matchesStatus;
-  });
+  const itemsToExport = filteredInventory();
 
   if (!itemsToExport.length) {
     toast("No hay equipos para exportar con los filtros actuales.");
@@ -1521,7 +1776,12 @@ function exportReturnsToExcel() {
 
 function navigate(view) {
   document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
-  document.querySelectorAll(".nav-item").forEach(b => b.classList.toggle("active",b.dataset.view===view));
+  document.querySelectorAll(".nav-item").forEach(b => {
+    const active = b.dataset.view === view;
+    b.classList.toggle("active", active);
+    if (active) b.setAttribute("aria-current", "page");
+    else b.removeAttribute("aria-current");
+  });
   $(`${view}View`).classList.add("active");
   const titles={dashboard:"Panel general",inventory:"Inventario de equipos",assignments:"Historial de asignaciones",returns:"Historial de recepciones"};
   $("pageTitle").textContent=titles[view]||"Panel general";
@@ -1538,6 +1798,14 @@ document.querySelectorAll("dialog").forEach(dialog => {
 });
 document.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click",()=>closeDialog(b.dataset.close)));
 $("brandLogoButton").addEventListener("click", () => $("brandLogoViewer").showModal());
+$("incidentDialog").addEventListener("close", () => {
+  if (!incidentReturnToDetail || !currentDetailEquipmentId) return;
+  incidentReturnToDetail = false;
+  showDetail(currentDetailEquipmentId);
+});
+$("reportIncidentBtn").addEventListener("click", () => {
+  if (currentDetailEquipmentId) prepareIncident(currentDetailEquipmentId);
+});
 $("historyContent").addEventListener("click", event => {
   const photoButton = event.target.closest("[data-view-equipment-photo]");
   if (!photoButton) return;
@@ -1571,11 +1839,57 @@ $("equipmentPhotoPreview").addEventListener("click", event => {
 });
 $("assignmentForm").addEventListener("submit",saveAssignment);
 $("returnForm").addEventListener("submit",saveReturn);
-["searchInput","availabilityFilter","statusFilter"].forEach(id=>$(id).addEventListener("input",()=>{
+$("incidentForm").addEventListener("submit", saveIncident);
+$("incidentType").addEventListener("change", updateIncidentResponsibleFields);
+$("incidentEvidenceInput").addEventListener("change", handleIncidentEvidenceChange);
+$("incidentEvidencePreview").addEventListener("click", event => {
+  const button = event.target.closest("[data-remove-incident-evidence]");
+  if (!button || incidentEvidenceProcessing) return;
+  const index = Number(button.dataset.removeIncidentEvidence);
+  setIncidentEvidence(incidentEvidenceData.filter((_, photoIndex) => photoIndex !== index));
+  $("incidentEvidenceStatus").textContent = "La evidencia se quitará al guardar el reporte.";
+});
+["searchInput","availabilityFilter","statusFilter","typeFilter","areaFilter"].forEach(id=>$(id).addEventListener(id === "searchInput" ? "input" : "change",()=>{
   tablePages.inventory = 1;
   renderInventory();
 }));
+function clearInventoryFilters() {
+  ["searchInput","availabilityFilter","statusFilter","typeFilter","areaFilter"].forEach(id => { $(id).value = ""; });
+  tablePages.inventory = 1;
+  renderInventory();
+}
+$("clearFiltersBtn").addEventListener("click", clearInventoryFilters);
+document.querySelectorAll(".table-sort").forEach(button => button.addEventListener("click", () => {
+  const { sortTable, sortKey } = button.dataset;
+  const current = tableSorts[sortTable];
+  if (current.key === sortKey) current.direction = current.direction === "asc" ? "desc" : "asc";
+  else {
+    current.key = sortKey;
+    current.direction = sortKey === "fecha" ? "desc" : "asc";
+  }
+  tablePages[sortTable] = 1;
+  if (sortTable === "inventory") renderInventory();
+  else if (sortTable === "assignments") renderAssignments();
+  else if (sortTable === "returns") renderReturns();
+}));
 document.addEventListener("click", event => {
+  const clearButton = event.target.closest("[data-clear-filters]");
+  if (clearButton) {
+    clearInventoryFilters();
+    $("searchInput").focus();
+    return;
+  }
+  const chartButton = event.target.closest("[data-chart-filter]");
+  if (chartButton) {
+    navigate("inventory");
+    const filterId = { status: "statusFilter", type: "typeFilter", area: "areaFilter" }[chartButton.dataset.chartFilter];
+    if (filterId) {
+      $(filterId).value = chartButton.dataset.chartValue;
+      tablePages.inventory = 1;
+      renderInventory();
+    }
+    return;
+  }
   const button = event.target.closest("[data-pagination]");
   if (!button || button.disabled) return;
   const table = button.dataset.pagination;
@@ -1589,19 +1903,64 @@ window.addEventListener("scroll", () => {
   scrollToTopButton.hidden = window.scrollY < 300;
 }, { passive: true });
 scrollToTopButton.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+function positionActionMenu(menu) {
+  if (!menu.open) return;
+  const panel = menu.querySelector(".action-menu-items");
+  const trigger = menu.querySelector("summary");
+  if (!panel || !trigger) return;
+  panel.style.visibility = "hidden";
+  const panelRect = panel.getBoundingClientRect();
+  const triggerRect = trigger.getBoundingClientRect();
+  const margin = 12;
+  const left = Math.max(margin, Math.min(triggerRect.right - panelRect.width, window.innerWidth - panelRect.width - margin));
+  let top = triggerRect.bottom + 8;
+  if (top + panelRect.height > window.innerHeight - margin) {
+    top = triggerRect.top - panelRect.height - 8;
+  }
+  panel.style.left = `${left}px`;
+  panel.style.top = `${Math.max(margin, top)}px`;
+  panel.style.visibility = "";
+}
+document.addEventListener("toggle", event => {
+  const menu = event.target;
+  if (!(menu instanceof HTMLDetailsElement) || !menu.matches(".action-menu")) return;
+  if (menu.open) requestAnimationFrame(() => positionActionMenu(menu));
+  else menu.querySelector(".action-menu-items")?.removeAttribute("style");
+}, true);
+window.addEventListener("resize", () => {
+  document.querySelectorAll(".action-menu[open]").forEach(positionActionMenu);
+});
+window.addEventListener("scroll", () => {
+  document.querySelectorAll(".action-menu[open]").forEach(positionActionMenu);
+}, true);
 document.addEventListener("click",event=>{
+  const clickedMenu = event.target.closest(".action-menu");
+  document.querySelectorAll(".action-menu[open]").forEach(menu => {
+    if (menu !== clickedMenu) menu.open = false;
+  });
   const b=event.target.closest("[data-action]"); if(!b)return;
+  b.closest(".action-menu")?.removeAttribute("open");
   const {action,id}=b.dataset;
-  if(action==="detail")showDetail(id); if(action==="edit")editEquipment(id);
-  if(action==="assign")prepareAssignment(id); if(action==="receive")prepareReturn(id);
-  if(action==="decommission")decommissionEquipment(id);
-  if(action==="delete")deleteEquipment(id,b);
-  if(action==="print-assignment")downloadAssignmentPdf(id,Number(b.dataset.recordIndex));
-  if(action==="print-return")downloadReturnPdf(id,Number(b.dataset.recordIndex));
+  if(action==="detail")showDetail(id);
+  else if(action==="edit")editEquipment(id);
+  else if(action==="incident")prepareIncident(id);
+  else if(action==="assign")prepareAssignment(id);
+  else if(action==="receive")prepareReturn(id);
+  else if(action==="decommission")decommissionEquipment(id);
+  else if(action==="delete")deleteEquipment(id,b);
+  else if(action==="print-assignment")downloadAssignmentPdf(id,Number(b.dataset.recordIndex));
+  else if(action==="print-return")downloadReturnPdf(id,Number(b.dataset.recordIndex));
 });
 $("mobileMenu").addEventListener("click", () => {
   const isOpen = $("sidebar").classList.toggle("open");
   $("mobileMenu").setAttribute("aria-expanded", String(isOpen));
+});
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape" && $("sidebar").classList.contains("open")) {
+    $("sidebar").classList.remove("open");
+    $("mobileMenu").setAttribute("aria-expanded", "false");
+    $("mobileMenu").focus();
+  }
 });
 document.addEventListener("click", event => {
   if (!window.matchMedia("(max-width: 760px)").matches) return;

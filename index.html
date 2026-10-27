@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261024_16">
+  <link rel="stylesheet" href="styles.css?v=20261027_7">
 </head>
 <body>
   <div class="app-shell">
@@ -19,8 +19,8 @@
         </button>
         <span class="brand-subtitle">GESTIÓN DE EQUIPOS</span>
       </div>
-      <nav>
-        <button class="nav-item active" data-view="dashboard"><span>▦</span> Panel general</button>
+      <nav aria-label="Navegación principal">
+        <button class="nav-item active" data-view="dashboard" aria-current="page"><span>▦</span> Panel general</button>
         <button class="nav-item" data-view="inventory"><span>▤</span> Inventario</button>
         <button class="nav-item" data-view="assignments"><span>↗</span> Asignaciones</button>
         <button class="nav-item" data-view="returns"><span>↙</span> Recepciones</button>
@@ -49,26 +49,76 @@
           <article class="stat-card"><div class="stat-icon amber">↗</div><div><span>Asignados</span><strong id="statAssigned">0</strong><small>Actualmente en uso</small></div></article>
           <article class="stat-card"><div class="stat-icon blue">⚙</div><div><span>En mantenimiento / otros</span><strong id="statOther">0</strong><small>Revisar estado del equipo</small></div></article>
         </div>
+        <div class="section-heading dashboard-chart-heading"><div><h3>Distribución del inventario</h3><p>Selecciona una categoría para filtrar el inventario</p></div></div>
+        <div class="dashboard-charts">
+          <section class="chart-card" aria-labelledby="statusChartTitle">
+            <h4 id="statusChartTitle">Equipos por estado</h4>
+            <div id="statusChart" class="chart-list"></div>
+          </section>
+          <section class="chart-card" aria-labelledby="typeChartTitle">
+            <h4 id="typeChartTitle">Equipos por tipo</h4>
+            <div id="typeChart" class="chart-list"></div>
+          </section>
+          <section class="chart-card" aria-labelledby="areaChartTitle">
+            <h4 id="areaChartTitle">Asignados por área</h4>
+            <div id="areaChart" class="chart-list"></div>
+          </section>
+        </div>
         <div class="section-heading"><div><h3>Equipos recientes</h3><p>Últimos equipos registrados o actualizados</p></div><button class="btn btn-outline" data-goto="inventory">Ver inventario →</button></div>
-        <div class="table-card"><div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Serial</th><th>Tipo</th><th>Estado</th><th>Disponibilidad</th><th>Asignado a</th><th>Acciones</th></tr></thead><tbody id="recentTable"><tr><td colspan="7" class="empty-cell">Conecta Firebase para cargar los equipos.</td></tr></tbody></table></div></div>
+        <div class="table-card"><div class="table-wrap"><table id="recentEquipmentTable"><thead><tr><th>Equipo</th><th>Serial</th><th>Tipo</th><th>Estado</th><th>Disponibilidad</th><th>Asignado a</th><th>Acciones</th></tr></thead><tbody id="recentTable"><tr><td colspan="7" class="empty-cell">Conecta Firebase para cargar los equipos.</td></tr></tbody></table></div></div>
       </section>
 
       <section class="view" id="inventoryView">
         <div class="section-heading"><div><h3>Inventario de equipos</h3><p>Registro maestro de los activos tecnológicos</p></div><div class="heading-actions"><button class="btn btn-outline" id="exportExcelBtn">📥 Exportar a Excel</button><button class="btn btn-primary" id="newEquipmentBtn2">＋ Nuevo equipo</button></div></div>
-        <div class="toolbar"><div class="search-box"><span>⌕</span><input id="searchInput" type="search" placeholder="Buscar por marca, serial, tipo o responsable..."></div><select id="availabilityFilter"><option value="">Todas las disponibilidades</option><option value="si">Disponible</option><option value="no">No disponible</option><option value="baja">De baja</option></select><select id="statusFilter"><option value="">Todos los estados</option><option>Nuevo</option><option>Bueno</option><option>En Mantenimiento</option><option>De Baja</option></select></div>
-        <div class="table-card"><div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Serial</th><th>Tipo</th><th>Estado</th><th>Periféricos</th><th>Disponible</th><th>Asignado a</th><th>Fecha asignación</th><th>Acciones</th></tr></thead><tbody id="inventoryTable"><tr><td colspan="9" class="empty-cell">Cargando inventario...</td></tr></tbody></table></div></div>
+        <div class="toolbar">
+          <div class="search-box"><label for="searchInput" class="visually-hidden">Buscar en el inventario</label><span aria-hidden="true">⌕</span><input id="searchInput" type="search" placeholder="Buscar por marca, serial, tipo o responsable..."></div>
+          <select id="availabilityFilter" aria-label="Filtrar por disponibilidad"><option value="">Todas las disponibilidades</option><option value="si">Disponible</option><option value="no">No disponible</option><option value="baja">De baja</option></select>
+          <select id="statusFilter" aria-label="Filtrar por estado"><option value="">Todos los estados</option><option>Nuevo</option><option>Bueno</option><option>En Mantenimiento</option><option>De Baja</option></select>
+          <select id="typeFilter" aria-label="Filtrar por tipo"><option value="">Todos los tipos</option></select>
+          <select id="areaFilter" aria-label="Filtrar por área asignada"><option value="">Todas las áreas</option></select>
+          <button type="button" class="btn btn-outline" id="clearFiltersBtn">Limpiar filtros</button>
+        </div>
+        <div class="table-card"><div class="table-wrap"><table><thead><tr>
+          <th><button type="button" class="table-sort" data-sort-table="inventory" data-sort-key="marca">Equipo</button></th>
+          <th><button type="button" class="table-sort" data-sort-table="inventory" data-sort-key="serial">Serial</button></th>
+          <th><button type="button" class="table-sort" data-sort-table="inventory" data-sort-key="tipo">Tipo</button></th>
+          <th><button type="button" class="table-sort" data-sort-table="inventory" data-sort-key="estado">Estado</button></th>
+          <th>Periféricos</th>
+          <th><button type="button" class="table-sort" data-sort-table="inventory" data-sort-key="disponible">Disponible</button></th>
+          <th><button type="button" class="table-sort" data-sort-table="inventory" data-sort-key="asignadoA">Asignado a</button></th>
+          <th><button type="button" class="table-sort" data-sort-table="inventory" data-sort-key="fecha">Fecha asignación</button></th>
+          <th>Acciones</th>
+        </tr></thead><tbody id="inventoryTable"><tr><td colspan="9" class="empty-cell">Cargando inventario...</td></tr></tbody></table></div></div>
         <div class="table-pagination-footer"><p class="table-footnote" id="inventoryCount">0 equipos</p><nav class="table-pagination" id="inventoryPagination" aria-label="Paginación del inventario"></nav></div>
       </section>
 
       <section class="view" id="assignmentsView">
         <div class="section-heading"><div><h3>Historial de asignaciones</h3><p>Entrega de equipos y responsables</p></div><div class="heading-actions"><button class="btn btn-outline" id="exportAssignmentsBtn">📥 Exportar asignaciones a Excel</button></div></div>
-        <div class="table-card"><div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Serial</th><th>Asignado a</th><th>Área</th><th>Fecha</th><th>Estado al asignar</th><th>Entregado por</th><th>Acciones</th></tr></thead><tbody id="assignmentsTable"><tr><td colspan="8" class="empty-cell">No hay asignaciones registradas.</td></tr></tbody></table></div></div>
+        <div class="table-card"><div class="table-wrap"><table><thead><tr>
+          <th><button type="button" class="table-sort" data-sort-table="assignments" data-sort-key="marca">Equipo</button></th>
+          <th><button type="button" class="table-sort" data-sort-table="assignments" data-sort-key="serial">Serial</button></th>
+          <th><button type="button" class="table-sort" data-sort-table="assignments" data-sort-key="asignadoA">Asignado a</button></th>
+          <th><button type="button" class="table-sort" data-sort-table="assignments" data-sort-key="area">Área</button></th>
+          <th><button type="button" class="table-sort" data-sort-table="assignments" data-sort-key="fecha">Fecha</button></th>
+          <th><button type="button" class="table-sort" data-sort-table="assignments" data-sort-key="estado">Estado al asignar</button></th>
+          <th><button type="button" class="table-sort" data-sort-table="assignments" data-sort-key="entregadoPor">Entregado por</button></th>
+          <th>Acciones</th>
+        </tr></thead><tbody id="assignmentsTable"><tr><td colspan="8" class="empty-cell">No hay asignaciones registradas.</td></tr></tbody></table></div></div>
         <nav class="table-pagination" id="assignmentsPagination" aria-label="Paginación de asignaciones"></nav>
       </section>
 
       <section class="view" id="returnsView">
         <div class="section-heading"><div><h3>Historial de recepciones</h3><p>Registro de devolución y condición de los equipos</p></div><div class="heading-actions"><button class="btn btn-outline" id="exportReturnsBtn">📥 Exportar recepciones a Excel</button></div></div>
-        <div class="table-card"><div class="table-wrap"><table><thead><tr><th>Equipo</th><th>Serial</th><th>Recibido de</th><th>Recibido por</th><th>Área</th><th>Fecha</th><th>Estado recibido</th><th>Acciones</th></tr></thead><tbody id="returnsTable"><tr><td colspan="8" class="empty-cell">No hay recepciones registradas.</td></tr></tbody></table></div></div>
+        <div class="table-card"><div class="table-wrap"><table><thead><tr>
+          <th><button type="button" class="table-sort" data-sort-table="returns" data-sort-key="marca">Equipo</button></th>
+          <th><button type="button" class="table-sort" data-sort-table="returns" data-sort-key="serial">Serial</button></th>
+          <th><button type="button" class="table-sort" data-sort-table="returns" data-sort-key="recibidoDe">Recibido de</button></th>
+          <th><button type="button" class="table-sort" data-sort-table="returns" data-sort-key="recibidoPor">Recibido por</button></th>
+          <th><button type="button" class="table-sort" data-sort-table="returns" data-sort-key="area">Área</button></th>
+          <th><button type="button" class="table-sort" data-sort-table="returns" data-sort-key="fecha">Fecha</button></th>
+          <th><button type="button" class="table-sort" data-sort-table="returns" data-sort-key="estado">Estado recibido</button></th>
+          <th>Acciones</th>
+        </tr></thead><tbody id="returnsTable"><tr><td colspan="8" class="empty-cell">No hay recepciones registradas.</td></tr></tbody></table></div></div>
         <nav class="table-pagination" id="returnsPagination" aria-label="Paginación de recepciones"></nav>
       </section>
       <footer>Supercarnes JH · Sistema interno de inventario de equipos</footer>
@@ -221,6 +271,52 @@
     </form>
   </dialog>
 
+  <dialog id="incidentDialog" class="modal">
+    <form id="incidentForm" class="modal-form">
+      <div class="modal-header">
+        <div><p class="eyebrow">REGISTRO DE NOVEDAD</p><h2>Reportar incidente</h2><p class="modal-subtitle" id="incidentEquipmentLabel"></p></div>
+        <button type="button" class="icon-btn" data-close="incidentDialog" aria-label="Cerrar formulario">✕</button>
+      </div>
+      <input type="hidden" id="incidentEquipmentId">
+      <div class="form-grid">
+        <label>Tipo de novedad
+          <select id="incidentType" required>
+            <option value="Daño">Daño</option>
+            <option value="Pérdida">Pérdida</option>
+            <option value="Robo">Robo</option>
+            <option value="Cambio de responsable">Cambio de responsable</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </label>
+        <label>Fecha del incidente <input id="incidentDate" type="date" required></label>
+        <label class="full">Reportado por
+          <select id="incidentReportedBy" required>
+            <option value="" disabled selected>Seleccione responsable...</option>
+            <option value="Jeison Sanchez">Jeison Sanchez</option>
+            <option value="Jose Monterroza">Jose Monterroza</option>
+            <option value="Willinton Manco">Willinton Manco</option>
+            <option value="Jhon Vega">Jhon Vega</option>
+          </select>
+        </label>
+        <div id="incidentResponsibleFields" class="full incident-responsible-fields" hidden>
+          <label>Responsable anterior <input id="incidentPreviousResponsible" maxlength="100" placeholder="Nombre anterior"></label>
+          <label>Nuevo responsable <input id="incidentNewResponsible" maxlength="100" placeholder="Nombre nuevo"></label>
+          <p class="field-help">Este registro documenta el cambio. Para actualizar la asignación del equipo, utiliza la acción Asignar.</p>
+        </div>
+        <label class="full">Descripción <textarea id="incidentDescription" rows="4" required maxlength="1500" placeholder="Describe qué ocurrió, ubicación u otras novedades relevantes..."></textarea></label>
+        <div class="full incident-evidence-field">
+          <label for="incidentEvidenceInput" class="field-label">Evidencia fotográfica (máximo 2 imágenes)</label>
+          <input id="incidentEvidenceInput" type="file" accept="image/*" capture="environment" multiple aria-describedby="incidentEvidenceHelp incidentEvidenceStatus">
+          <p id="incidentEvidenceHelp" class="field-help">Las imágenes se optimizan antes de guardarse. Cada foto ocupa máximo aproximado de 100 KB.</p>
+          <p id="incidentEvidenceStatus" class="equipment-photo-status" role="status" aria-live="polite"></p>
+          <div id="incidentEvidencePreview" class="equipment-photo-gallery" hidden></div>
+        </div>
+      </div>
+      <p class="incident-disposition-note">Los reportes de daño, pérdida y robo preguntarán si deseas marcar el equipo como no disponible. El reporte se guardará incluso si decides mantener su disponibilidad.</p>
+      <div class="modal-actions"><button type="button" class="btn btn-outline" data-close="incidentDialog">Cancelar</button><button class="btn btn-primary" type="submit">Guardar reporte</button></div>
+    </form>
+  </dialog>
+
   <dialog id="historyDialog" class="modal">
     <div class="modal-form">
       <div class="modal-header">
@@ -229,6 +325,7 @@
           <h2 id="historyTitle">Detalle del equipo</h2>
         </div>
         <div class="modal-header-actions">
+          <button type="button" class="btn btn-outline btn-sm" id="reportIncidentBtn">＋ Reportar novedad</button>
           <button type="button" class="btn btn-outline btn-sm" id="downloadPdfBtn" title="Descargar detalle en PDF">📥 Descargar PDF</button>
           <button type="button" class="icon-btn" data-close="historyDialog" aria-label="Cerrar modal">✕</button>
         </div>
@@ -260,10 +357,10 @@
       </div>
     </div>
   </dialog>
-  <div id="toast" class="toast" role="status"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
   <button type="button" id="scrollToTopBtn" class="scroll-to-top" aria-label="Volver arriba" title="Volver arriba" hidden>↑</button>
   <script src="xlsx.full.min.js" onerror="this.onerror=null;this.src='https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js'"></script>
   <script src="html2pdf.bundle.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'"></script>
-  <script type="module" src="app.js?v=20261024_22"></script>
+  <script type="module" src="app.js?v=20261027_8"></script>
 </body>
 </html>

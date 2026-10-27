@@ -11,10 +11,18 @@ Aplicación responsive en HTML, CSS y JavaScript con Cloud Firestore. Incluye:
 - Recepciones con persona que devuelve, responsable que recibe, área, fecha, periféricos, estado y firma dibujada.
 - Historial de asignaciones y devoluciones por equipo.
 - Búsqueda, filtros y panel de indicadores.
+- Panel visual con distribución por estado, tipo y área; las categorías se pueden seleccionar para filtrar el inventario.
+- Filtros combinables por disponibilidad, estado, tipo y área, con opción para limpiarlos; se conservan al cambiar de sección.
+- Ordenamiento ascendente/descendente de las columnas principales en inventario, asignaciones y recepciones.
+- Acciones rápidas para asignar o recibir equipos desde la tabla de equipos recientes.
+- Línea de tiempo cronológica de asignaciones y recepciones en la ficha del activo.
+- Reporte de novedades por equipo para daños, pérdidas, robos, cambios de responsable y otros eventos; admite descripción y hasta dos fotos de evidencia optimizadas.
+- Los reportes de daño, pérdida y robo permiten elegir si el equipo también debe quedar como no disponible; la ficha explica el bloqueo y la asignación efectiva de un nuevo responsable se realiza con el flujo de asignación existente.
+- Accesibilidad mejorada con etiquetas para lectores de pantalla, foco visible, avisos anunciados y cierre del menú móvil con Escape.
 - Paginación de 20 registros en inventario, asignaciones y recepciones, con control para volver al inicio de la página.
 - Columna dedicada de serial en todas las tablas del sistema.
 - Exportación general a Excel con título y encabezados en color, filas con bordes y bandas alternas, filtros y encabezados inmovilizados; descarga de ficha técnica del activo en PDF con firmas e historial completo.
-- Diseño adaptado a celular, tablet y computador con botones de acción optimizados (iconos de color en móvil).
+- Diseño adaptado a celular, tablet y computador: las acciones principales quedan visibles, las acciones secundarias se agrupan en “Más acciones” y el inventario y los equipos recientes se presentan como tarjetas en pantallas pequeñas.
 - Sincronización automática en tiempo real entre los dispositivos conectados a Firestore.
 
 ## 1. Crear Firebase
@@ -37,15 +45,16 @@ Como se usan módulos JavaScript, abre la carpeta mediante un servidor local (no
 
 ## 4. Estructura de Firestore
 Colección `equipos`, un documento por equipo:
-- `marca`, `tipo`, `estado`, `disponible`, `perifericos`, `observaciones`, `asignadoPor`
+- `marca`, `tipo`, `estado`, `disponible`, `noDisponiblePorNovedad`, `perifericos`, `observaciones`, `asignadoPor`
 - `fotos`: arreglo de hasta cuatro imágenes JPEG optimizadas y codificadas en base64. El campo `foto` conserva la primera imagen para compatibilidad con documentos existentes.
 - `asignaciones`: arreglo de registros de asignación, cada uno con datos de entrega y firma en base64.
 - `recepciones`: arreglo de registros de recepción, cada uno con datos de devolución, responsable que recibe y firma en base64.
+- `novedades`: arreglo de incidentes con tipo, fecha, reportante, descripción, responsables anterior/nuevo cuando aplique, hasta dos evidencias JPEG optimizadas en base64 y fecha de registro.
 - `createdAt`, `updatedAt`: fechas de creación/actualización.
 
-La aplicación escucha la colección en tiempo real, por lo que los cambios guardados desde un dispositivo aparecen automáticamente en los demás dispositivos conectados. El botón **Eliminar** en el inventario borra permanentemente el documento del equipo, incluidos sus historiales de asignación y recepción; solicita confirmación antes de hacerlo.
+La aplicación escucha la colección en tiempo real, por lo que los cambios guardados desde un dispositivo aparecen automáticamente en los demás dispositivos conectados. El botón **Eliminar** en el inventario borra permanentemente el documento del equipo, incluidos sus historiales de asignación, recepción y novedades; solicita confirmación antes de hacerlo.
 
-Las fotos del equipo se optimizan antes de guardarse en su documento de Firestore (máximo aproximado de 100 KB por imagen). Como Firestore limita el tamaño de cada documento, mantén bajo control el crecimiento de las fotos, firmas y del historial.
+Las fotos del equipo y evidencias se optimizan antes de guardarse en su documento de Firestore (máximo aproximado de 100 KB por imagen). Cada novedad admite hasta dos evidencias. Como Firestore limita el tamaño de cada documento, mantén bajo control el crecimiento de las fotos, firmas y del historial; para un volumen alto de imágenes, considera Firebase Storage.
 
 ## Nota sobre firmas
 Las firmas dibujadas se guardan como imagen PNG en el documento de Firestore. Si se espera un volumen alto de firmas, es mejor guardar las imágenes en Firebase Storage y almacenar en Firestore solo la URL. Los documentos tienen límites de tamaño, por lo que conviene vigilar el crecimiento del historial.
