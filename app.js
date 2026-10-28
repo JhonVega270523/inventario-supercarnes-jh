@@ -12,6 +12,8 @@ let incidentReturnToDetail = false;
 let toastTimer;
 let equipmentPhotoData = [];
 let equipmentPhotoProcessing = false;
+let equipmentViewerPhotos = [];
+let equipmentViewerIndex = 0;
 let incidentEvidenceData = [];
 let incidentEvidenceProcessing = false;
 const maxEquipmentPhotos = 4;
@@ -35,6 +37,43 @@ function escapeHTML(value = "") {
 function getEquipmentPhotos(e) {
   const photos = Array.isArray(e.fotos) && e.fotos.length ? e.fotos : [e.foto];
   return photos.filter(photo => typeof photo === "string" && photo.startsWith("data:image/jpeg;base64,")).slice(0, maxEquipmentPhotos);
+}
+function equipmentPhotoCell(e) {
+  const photos = getEquipmentPhotos(e);
+  if (!photos.length) return '<span class="equipment-table-photo-empty" aria-label="Sin foto">—</span>';
+  const label = `Ver fotos de ${e.marca || "equipo"}`;
+  return `<button type="button" class="equipment-table-photo" data-view-equipment-photo="0" data-equipment-id="${escapeHTML(e.id)}" aria-label="${escapeHTML(label)}" title="${escapeHTML(label)}"><img src="${escapeHTML(photos[0])}" alt="Primera foto de ${escapeHTML(e.marca || "equipo")}"></button>`;
+}
+function updateEquipmentPhotoViewer() {
+  const photo = equipmentViewerPhotos[equipmentViewerIndex];
+  if (!photo) return;
+  $("equipmentPhotoViewerImage").src = photo.src;
+  $("equipmentPhotoViewerImage").alt = photo.alt;
+  $("equipmentPhotoViewerCount").textContent = `${equipmentViewerIndex + 1} / ${equipmentViewerPhotos.length}`;
+  $("equipmentPhotoViewerPrevious").disabled = equipmentViewerIndex === 0;
+  $("equipmentPhotoViewerNext").disabled = equipmentViewerIndex === equipmentViewerPhotos.length - 1;
+}
+function openEquipmentPhotoViewer(photos, index = 0) {
+  equipmentViewerPhotos = photos;
+  equipmentViewerIndex = Math.max(0, Math.min(index, photos.length - 1));
+  updateEquipmentPhotoViewer();
+  $("equipmentPhotoViewer").showModal();
+}
+function handleEquipmentPhotoView(event) {
+  const photoButton = event.target.closest("[data-view-equipment-photo]");
+  if (!photoButton) return;
+  const equipmentId = photoButton.dataset.equipmentId;
+  const item = equipmentId ? equipment.find(e => e.id === equipmentId) : null;
+  const photos = item
+    ? getEquipmentPhotos(item).map((src, index) => ({ src, alt: `Foto ${index + 1} de ${item.marca || "equipo"}` }))
+    : Array.from(photoButton.closest(".equipment-detail-photos, .incident-evidence-gallery")?.querySelectorAll("img") || [])
+      .map(img => ({ src: img.src, alt: img.alt }));
+  if (!photos.length) {
+    const image = photoButton.querySelector("img");
+    if (image) photos.push({ src: image.src, alt: image.alt });
+  }
+  if (!photos.length) return;
+  openEquipmentPhotoViewer(photos, Number(photoButton.dataset.viewEquipmentPhoto) || 0);
 }
 function setEquipmentPhotos(photos = []) {
   equipmentPhotoData = photos.slice(0, maxEquipmentPhotos);
@@ -414,6 +453,7 @@ function renderRecent() {
     const a = currentAssignment(e);
     return `<tr>
       <td data-label="Equipo"><span class="equipment-name">${escapeHTML(e.marca)}</span><span class="subtext">${escapeHTML(e.tipo)}</span></td>
+      <td data-label="Foto">${equipmentPhotoCell(e)}</td>
       <td data-label="Serial"><span class="serial-tag">${escapeHTML(e.serial || e.referencia || "—")}</span></td>
       <td data-label="Tipo">${escapeHTML(e.tipo)}</td>
       <td data-label="Estado">${statusPill(e.estado)}</td>
@@ -421,7 +461,7 @@ function renderRecent() {
       <td data-label="Asignado a">${escapeHTML(a?.asignadoA || "—")}</td>
       <td data-label="Acciones">${equipmentActions(e)}</td>
     </tr>`;
-  }).join("") : '<tr><td colspan="7" class="empty-cell">Aún no hay equipos. Registra el primero para comenzar.</td></tr>';
+  }).join("") : '<tr><td colspan="8" class="empty-cell">Aún no hay equipos. Registra el primero para comenzar.</td></tr>';
 }
 function renderInventory() {
   const filtered = sortRows(filteredInventory(), "inventory", (e, key) => {
@@ -435,6 +475,7 @@ function renderInventory() {
     const a = currentAssignment(e);
     return `<tr>
       <td data-label="Equipo"><span class="equipment-name">${escapeHTML(e.marca || "—")}</span></td>
+      <td data-label="Foto">${equipmentPhotoCell(e)}</td>
       <td data-label="Serial"><span class="serial-tag">${escapeHTML(e.serial || e.referencia || "—")}</span></td>
       <td data-label="Tipo">${escapeHTML(e.tipo || "—")}</td>
       <td data-label="Estado">${statusPill(e.estado)}</td>
@@ -444,7 +485,7 @@ function renderInventory() {
       <td data-label="Fecha asignación">${dateText(a?.fecha)}</td>
       <td data-label="Acciones">${equipmentActions(e)}</td>
     </tr>`;
-  }).join("") : `<tr><td colspan="9" class="empty-cell">No se encontraron equipos con esos filtros.<br><button type="button" class="btn-link-action" data-clear-filters>Limpiar filtros</button></td></tr>`;
+  }).join("") : `<tr><td colspan="10" class="empty-cell">No se encontraron equipos con esos filtros.<br><button type="button" class="btn-link-action" data-clear-filters>Limpiar filtros</button></td></tr>`;
   updateSortHeaders();
 }
 function renderAssignments() {
@@ -1807,17 +1848,35 @@ $("reportIncidentBtn").addEventListener("click", () => {
   if (currentDetailEquipmentId) prepareIncident(currentDetailEquipmentId);
 });
 $("historyContent").addEventListener("click", event => {
-  const photoButton = event.target.closest("[data-view-equipment-photo]");
-  if (!photoButton) return;
-  const photo = photoButton.querySelector("img");
-  const viewer = $("equipmentPhotoViewer");
-  const viewerImage = $("equipmentPhotoViewerImage");
-  viewerImage.src = photo.src;
-  viewerImage.alt = photo.alt;
-  viewer.showModal();
+  handleEquipmentPhotoView(event);
+});
+$("inventoryTable").addEventListener("click", handleEquipmentPhotoView);
+$("recentTable").addEventListener("click", handleEquipmentPhotoView);
+$("equipmentPhotoViewerPrevious").addEventListener("click", () => {
+  if (equipmentViewerIndex > 0) {
+    equipmentViewerIndex -= 1;
+    updateEquipmentPhotoViewer();
+  }
+});
+$("equipmentPhotoViewerNext").addEventListener("click", () => {
+  if (equipmentViewerIndex < equipmentViewerPhotos.length - 1) {
+    equipmentViewerIndex += 1;
+    updateEquipmentPhotoViewer();
+  }
+});
+$("equipmentPhotoViewer").addEventListener("keydown", event => {
+  if (event.key === "ArrowLeft" && equipmentViewerIndex > 0) {
+    equipmentViewerIndex -= 1;
+    updateEquipmentPhotoViewer();
+  } else if (event.key === "ArrowRight" && equipmentViewerIndex < equipmentViewerPhotos.length - 1) {
+    equipmentViewerIndex += 1;
+    updateEquipmentPhotoViewer();
+  }
 });
 $("equipmentPhotoViewer").addEventListener("close", () => {
   $("equipmentPhotoViewerImage").removeAttribute("src");
+  equipmentViewerPhotos = [];
+  equipmentViewerIndex = 0;
 });
 document.querySelectorAll("[data-clear]").forEach(b=>b.addEventListener("click",()=>clearPad(b.dataset.clear)));
 $("confirmationCancelBtn").addEventListener("click", () => closeDialog("confirmationDialog"));
@@ -1987,7 +2046,7 @@ if (!configReady) {
   $("connectionText").textContent="Firebase pendiente de configurar";
   $("setupNotice").hidden=false;
   ["statTotal","statAvailable","statAssigned","statOther"].forEach(id=>$(id).textContent="—");
-  $("inventoryTable").innerHTML='<tr><td colspan="9" class="empty-cell">Configura Firebase para comenzar a registrar equipos.</td></tr>';
+  $("inventoryTable").innerHTML='<tr><td colspan="10" class="empty-cell">Configura Firebase para comenzar a registrar equipos.</td></tr>';
 } else {
   try {
     const app=initializeApp(firebaseConfig); db=getFirestore(app);

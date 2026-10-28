@@ -65,7 +65,7 @@
           </section>
         </div>
         <div class="section-heading"><div><h3>Equipos recientes</h3><p>Últimos equipos registrados o actualizados</p></div><button class="btn btn-outline" data-goto="inventory">Ver inventario →</button></div>
-        <div class="table-card"><div class="table-wrap"><table id="recentEquipmentTable"><thead><tr><th>Equipo</th><th>Serial</th><th>Tipo</th><th>Estado</th><th>Disponibilidad</th><th>Asignado a</th><th>Acciones</th></tr></thead><tbody id="recentTable"><tr><td colspan="7" class="empty-cell">Conecta Firebase para cargar los equipos.</td></tr></tbody></table></div></div>
+        <div class="table-card"><div class="table-wrap"><table id="recentEquipmentTable"><thead><tr><th>Equipo</th><th>Foto</th><th>Serial</th><th>Tipo</th><th>Estado</th><th>Disponibilidad</th><th>Asignado a</th><th>Acciones</th></tr></thead><tbody id="recentTable"><tr><td colspan="8" class="empty-cell">Conecta Firebase para cargar los equipos.</td></tr></tbody></table></div></div>
       </section>
 
       <section class="view" id="inventoryView">
@@ -80,6 +80,7 @@
         </div>
         <div class="table-card"><div class="table-wrap"><table><thead><tr>
           <th><button type="button" class="table-sort" data-sort-table="inventory" data-sort-key="marca">Equipo</button></th>
+          <th>Foto</th>
           <th><button type="button" class="table-sort" data-sort-table="inventory" data-sort-key="serial">Serial</button></th>
           <th><button type="button" class="table-sort" data-sort-table="inventory" data-sort-key="tipo">Tipo</button></th>
           <th><button type="button" class="table-sort" data-sort-table="inventory" data-sort-key="estado">Estado</button></th>
@@ -88,7 +89,7 @@
           <th><button type="button" class="table-sort" data-sort-table="inventory" data-sort-key="asignadoA">Asignado a</button></th>
           <th><button type="button" class="table-sort" data-sort-table="inventory" data-sort-key="fecha">Fecha asignación</button></th>
           <th>Acciones</th>
-        </tr></thead><tbody id="inventoryTable"><tr><td colspan="9" class="empty-cell">Cargando inventario...</td></tr></tbody></table></div></div>
+        </tr></thead><tbody id="inventoryTable"><tr><td colspan="10" class="empty-cell">Cargando inventario...</td></tr></tbody></table></div></div>
         <div class="table-pagination-footer"><p class="table-footnote" id="inventoryCount">0 equipos</p><nav class="table-pagination" id="inventoryPagination" aria-label="Paginación del inventario"></nav></div>
       </section>
 
@@ -340,6 +341,11 @@
   <dialog id="equipmentPhotoViewer" class="equipment-photo-viewer" aria-label="Foto ampliada del activo">
     <button type="button" class="icon-btn equipment-photo-viewer-close" data-close="equipmentPhotoViewer" aria-label="Cerrar foto ampliada">✕</button>
     <img id="equipmentPhotoViewerImage" alt="">
+    <div class="equipment-photo-viewer-controls" aria-label="Navegación de fotos">
+      <button type="button" class="equipment-photo-viewer-nav" id="equipmentPhotoViewerPrevious" aria-label="Ver foto anterior">← Anterior</button>
+      <span id="equipmentPhotoViewerCount" aria-live="polite"></span>
+      <button type="button" class="equipment-photo-viewer-nav" id="equipmentPhotoViewerNext" aria-label="Ver foto siguiente">Siguiente →</button>
+    </div>
   </dialog>
   <dialog id="brandLogoViewer" class="brand-logo-viewer" aria-label="Logo de Supercarnes JH ampliado">
     <button type="button" class="icon-btn equipment-photo-viewer-close" data-close="brandLogoViewer" aria-label="Cerrar logo ampliado">✕</button>
@@ -361,6 +367,6 @@
   <button type="button" id="scrollToTopBtn" class="scroll-to-top" aria-label="Volver arriba" title="Volver arriba" hidden>↑</button>
   <script src="xlsx.full.min.js" onerror="this.onerror=null;this.src='https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js'"></script>
   <script src="html2pdf.bundle.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'"></script>
-  <script type="module" src="app.js?v=20261027_8"></script>
+  <script type="module" src="app.js?v=20261028_1"></script>
 </body>
 </html>

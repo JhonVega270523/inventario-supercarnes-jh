@@ -1505,6 +1505,31 @@ footer{
   border-radius:8px;
   object-fit:contain;
 }
+.equipment-table-photo{
+  display:grid;
+  place-items:center;
+  width:52px;
+  height:44px;
+  padding:2px;
+  overflow:hidden;
+  border:1px solid #e8ebf0;
+  border-radius:7px;
+  background:#f4f6f9;
+  cursor:zoom-in;
+}
+.equipment-table-photo:hover{
+  border-color:#d9a0a4;
+}
+.equipment-table-photo img{
+  display:block;
+  width:100%;
+  height:100%;
+  border-radius:4px;
+  object-fit:cover;
+}
+.equipment-table-photo-empty{
+  color:#89909b;
+}
 .equipment-photo-viewer{
   position:fixed;
   inset:0;
@@ -1521,6 +1546,8 @@ footer{
 .equipment-photo-viewer[open]{
   display:grid;
   place-items:center;
+  grid-template-rows:minmax(0,1fr) auto;
+  gap:12px;
 }
 .equipment-photo-viewer::backdrop{
   background:rgba(15,17,20,.94);
@@ -1531,6 +1558,31 @@ footer{
   max-width:100%;
   max-height:100%;
   object-fit:contain;
+}
+.equipment-photo-viewer-controls{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:18px;
+  color:#fff;
+  font-size:12px;
+}
+.equipment-photo-viewer-nav{
+  min-height:38px;
+  padding:8px 12px;
+  border:1px solid rgba(255,255,255,.3);
+  border-radius:9px;
+  background:rgba(255,255,255,.12);
+  color:#fff;
+  font:inherit;
+  cursor:pointer;
+}
+.equipment-photo-viewer-nav:hover:not(:disabled){
+  background:rgba(255,255,255,.22);
+}
+.equipment-photo-viewer-nav:disabled{
+  opacity:.45;
+  cursor:not-allowed;
 }
 .equipment-photo-viewer-close{
   position:absolute;
@@ -1589,7 +1641,7 @@ footer{
     max-height:200px;
   }
   .equipment-photo-viewer{
-    padding:58px 12px 12px;
+    padding:58px 12px 14px;
   }
   .brand-logo-viewer{
     padding:58px 12px 12px;
