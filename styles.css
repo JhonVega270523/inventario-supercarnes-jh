@@ -1567,6 +1567,9 @@ footer{
   color:#fff;
   font-size:12px;
 }
+.equipment-photo-viewer-swipe-hint{
+  display:none;
+}
 .equipment-photo-viewer-nav{
   min-height:38px;
   padding:8px 12px;
@@ -1642,6 +1645,25 @@ footer{
   }
   .equipment-photo-viewer{
     padding:58px 12px 14px;
+  }
+  .equipment-table-photo{
+    width:72px;
+    height:62px;
+  }
+  .equipment-photo-viewer img{
+    touch-action:pan-y;
+  }
+  .equipment-photo-viewer-controls{
+    flex-direction:column;
+    gap:5px;
+  }
+  .equipment-photo-viewer-nav{
+    display:none;
+  }
+  .equipment-photo-viewer-swipe-hint{
+    display:block;
+    color:rgba(255,255,255,.72);
+    font-size:11px;
   }
   .brand-logo-viewer{
     padding:58px 12px 12px;

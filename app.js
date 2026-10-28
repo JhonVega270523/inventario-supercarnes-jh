@@ -14,6 +14,7 @@ let equipmentPhotoData = [];
 let equipmentPhotoProcessing = false;
 let equipmentViewerPhotos = [];
 let equipmentViewerIndex = 0;
+let equipmentViewerTouchStart = null;
 let incidentEvidenceData = [];
 let incidentEvidenceProcessing = false;
 const maxEquipmentPhotos = 4;
@@ -1873,10 +1874,31 @@ $("equipmentPhotoViewer").addEventListener("keydown", event => {
     updateEquipmentPhotoViewer();
   }
 });
+$("equipmentPhotoViewerImage").addEventListener("touchstart", event => {
+  if (equipmentViewerPhotos.length < 2 || event.touches.length !== 1) return;
+  const touch = event.touches[0];
+  equipmentViewerTouchStart = { x: touch.clientX, y: touch.clientY };
+}, { passive: true });
+$("equipmentPhotoViewerImage").addEventListener("touchend", event => {
+  if (!equipmentViewerTouchStart || !event.changedTouches.length) return;
+  const touch = event.changedTouches[0];
+  const deltaX = touch.clientX - equipmentViewerTouchStart.x;
+  const deltaY = touch.clientY - equipmentViewerTouchStart.y;
+  equipmentViewerTouchStart = null;
+  if (Math.abs(deltaX) < 45 || Math.abs(deltaX) <= Math.abs(deltaY) * 1.2) return;
+  if (deltaX < 0 && equipmentViewerIndex < equipmentViewerPhotos.length - 1) {
+    equipmentViewerIndex += 1;
+    updateEquipmentPhotoViewer();
+  } else if (deltaX > 0 && equipmentViewerIndex > 0) {
+    equipmentViewerIndex -= 1;
+    updateEquipmentPhotoViewer();
+  }
+}, { passive: true });
 $("equipmentPhotoViewer").addEventListener("close", () => {
   $("equipmentPhotoViewerImage").removeAttribute("src");
   equipmentViewerPhotos = [];
   equipmentViewerIndex = 0;
+  equipmentViewerTouchStart = null;
 });
 document.querySelectorAll("[data-clear]").forEach(b=>b.addEventListener("click",()=>clearPad(b.dataset.clear)));
 $("confirmationCancelBtn").addEventListener("click", () => closeDialog("confirmationDialog"));

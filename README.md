@@ -20,7 +20,7 @@ Aplicación responsive en HTML, CSS y JavaScript con Cloud Firestore. Incluye:
 - Los reportes de daño, pérdida y robo permiten elegir si el equipo también debe quedar como no disponible; la ficha explica el bloqueo y la asignación efectiva de un nuevo responsable se realiza con el flujo de asignación existente.
 - Accesibilidad mejorada con etiquetas para lectores de pantalla, foco visible, avisos anunciados y cierre del menú móvil con Escape.
 - Paginación de 20 registros en inventario, asignaciones y recepciones, con control para volver al inicio de la página.
-- Miniatura de la primera foto del equipo en las tablas de inventario y equipos recientes; al abrirla se pueden recorrer todas las fotos del equipo en el mismo visor.
+- Miniatura de la primera foto del equipo en las tablas de inventario y equipos recientes; al abrirla se pueden recorrer todas las fotos del equipo en el mismo visor, con controles en escritorio y gestos de deslizamiento en móvil.
 - Columna dedicada de serial en todas las tablas del sistema.
 - Exportación general a Excel con título y encabezados en color, filas con bordes y bandas alternas, filtros y encabezados inmovilizados; descarga de ficha técnica del activo en PDF con firmas e historial completo.
 - Diseño adaptado a celular, tablet y computador: las acciones principales quedan visibles, las acciones secundarias se agrupan en “Más acciones” y el inventario y los equipos recientes se presentan como tarjetas en pantallas pequeñas.
