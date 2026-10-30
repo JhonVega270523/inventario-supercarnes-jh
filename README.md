@@ -26,6 +26,7 @@ Aplicación responsive en HTML, CSS y JavaScript con Cloud Firestore. Incluye:
 - Exportación general a Excel con título y encabezados en color, filas con bordes y bandas alternas, filtros y encabezados inmovilizados; descarga de ficha técnica del activo en PDF con firmas e historial completo.
 - Diseño adaptado a celular, tablet y computador: las acciones principales quedan visibles, las acciones secundarias se agrupan en “Más acciones” y el inventario y los equipos recientes se presentan como tarjetas en pantallas pequeñas.
 - Sincronización automática en tiempo real entre los dispositivos conectados a Firestore.
+- Aplicación instalable como PWA en dispositivos y computadores compatibles; guarda el shell estático para volver a abrir la aplicación, aunque la lectura y sincronización de Firestore requieren conexión a internet.
 
 ## 1. Crear Firebase
 1. Entra a https://console.firebase.google.com/ y crea un proyecto.
@@ -45,7 +46,14 @@ La aplicación cliente no debe quedar abierta a todo el mundo. Antes de usar dat
 ## 3. Ejecutar localmente
 Como se usan módulos JavaScript, abre la carpeta mediante un servidor local (no con `file://`). Puedes usar la extensión **Live Server** de VS Code. Luego abre la dirección local que te muestre.
 
-## 4. Estructura de Firestore
+## 4. Instalar como aplicación (PWA)
+1. Publica el sitio en un hosting con HTTPS, como Firebase Hosting o GitHub Pages. En desarrollo también funciona en `localhost`.
+2. Abre la dirección del sitio en el navegador. En Chrome o Edge, selecciona **Instalar aplicación** en el menú o usa el icono de instalación de la barra de direcciones, si aparece.
+3. En iPhone o iPad, abre el sitio en Safari, toca **Compartir** y selecciona **Agregar a pantalla de inicio**.
+
+La PWA conserva en caché los archivos estáticos para poder abrir la interfaz; Firestore y la sincronización de datos siguen necesitando internet.
+
+## 5. Estructura de Firestore
 Colección `equipos`, un documento por equipo:
 - `marca`, `tipo`, `estado`, `disponible`, `noDisponiblePorNovedad`, `perifericos`, `observaciones`, `asignadoPor`
 - `fotos`: arreglo de hasta cuatro imágenes JPEG optimizadas y codificadas en base64. El campo `foto` conserva la primera imagen para compatibilidad con documentos existentes.
