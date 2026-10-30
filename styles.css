@@ -1125,6 +1125,9 @@ footer{
   font-size:11.5px;
   font-weight:700;
 }
+.form-grid label[hidden]{
+  display:none!important;
+}
 .form-grid input,
 .form-grid select,
 .form-grid textarea,
@@ -1465,6 +1468,45 @@ footer{
   min-height:32px;
   padding:6px 10px;
   font-size:10px;
+}
+.equipment-photo-card .equipment-photo-edit{
+  min-height:32px;
+  padding:6px 10px;
+  font-size:10px;
+}
+.equipment-photo-editor{
+  width:min(760px,calc(100vw - 28px));
+}
+.equipment-photo-editor-help{
+  margin:0 0 12px;
+  color:#687180;
+  font-size:12px;
+  line-height:1.5;
+}
+.equipment-photo-canvas-wrap{
+  display:grid;
+  place-items:center;
+  min-height:180px;
+  max-height:62vh;
+  padding:10px;
+  overflow:auto;
+  border:1px solid #e7eaf0;
+  border-radius:10px;
+  background:#202124;
+}
+.equipment-photo-canvas-wrap canvas{
+  display:block;
+  max-width:100%;
+  max-height:58vh;
+  object-fit:contain;
+  touch-action:none;
+  cursor:crosshair;
+}
+.equipment-photo-editor-controls{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:12px;
 }
 .equipment-detail-photos{
   display:grid;

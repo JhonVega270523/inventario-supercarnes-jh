@@ -12,6 +12,12 @@ let incidentReturnToDetail = false;
 let toastTimer;
 let equipmentPhotoData = [];
 let equipmentPhotoProcessing = false;
+let equipmentPhotoEditIndex = -1;
+let equipmentPhotoEditImage = null;
+let equipmentPhotoEditRotation = 0;
+let equipmentPhotoEditSelection = null;
+let equipmentPhotoEditDragStart = null;
+let equipmentPhotoEditSession = 0;
 let equipmentViewerPhotos = [];
 let equipmentViewerIndex = 0;
 let equipmentViewerTouchStart = null;
@@ -82,12 +88,94 @@ function setEquipmentPhotos(photos = []) {
   preview.innerHTML = equipmentPhotoData.map((photo, index) => `
     <div class="equipment-photo-card">
       <img src="${escapeHTML(photo)}" alt="Foto ${index + 1} del equipo">
+      <button type="button" class="btn btn-outline equipment-photo-edit" data-edit-equipment-photo="${index}" aria-label="Girar o recortar foto ${index + 1}">Girar / recortar</button>
       <button type="button" class="btn btn-outline equipment-photo-remove" data-remove-equipment-photo="${index}" aria-label="Quitar foto ${index + 1}">Quitar</button>
     </div>`).join("");
   preview.hidden = equipmentPhotoData.length === 0;
   $("equipmentPhotoPickerText").textContent = `Agregar foto (${equipmentPhotoData.length}/${maxEquipmentPhotos})`;
   $("equipmentPhotoInput").disabled = equipmentPhotoProcessing || equipmentPhotoData.length >= maxEquipmentPhotos;
   $("equipmentPhotoInput").closest(".equipment-photo-picker").classList.toggle("disabled", $("equipmentPhotoInput").disabled);
+}
+function drawEquipmentPhotoEditCanvas() {
+  const canvas = $("equipmentPhotoEditCanvas");
+  if (!equipmentPhotoEditImage) return;
+  const width = equipmentPhotoEditImage.naturalWidth;
+  const height = equipmentPhotoEditImage.naturalHeight;
+  const rotated = equipmentPhotoEditRotation % 180 !== 0;
+  canvas.width = rotated ? height : width;
+  canvas.height = rotated ? width : height;
+  const context = canvas.getContext("2d");
+  context.save();
+  context.translate(canvas.width / 2, canvas.height / 2);
+  context.rotate(equipmentPhotoEditRotation * Math.PI / 180);
+  context.drawImage(equipmentPhotoEditImage, -width / 2, -height / 2);
+  context.restore();
+
+  if (equipmentPhotoEditSelection) {
+    const { x, y, width: selectionWidth, height: selectionHeight } = equipmentPhotoEditSelection;
+    context.fillStyle = "rgba(0,0,0,.48)";
+    context.fillRect(0, 0, canvas.width, y);
+    context.fillRect(0, y + selectionHeight, canvas.width, canvas.height - y - selectionHeight);
+    context.fillRect(0, y, x, selectionHeight);
+    context.fillRect(x + selectionWidth, y, canvas.width - x - selectionWidth, selectionHeight);
+    context.strokeStyle = "#fff";
+    context.lineWidth = Math.max(2, canvas.width / 500);
+    context.strokeRect(x, y, selectionWidth, selectionHeight);
+  }
+}
+function openEquipmentPhotoEditor(index) {
+  const photo = equipmentPhotoData[index];
+  if (!photo || equipmentPhotoProcessing) return;
+  equipmentPhotoEditSession += 1;
+  equipmentPhotoEditIndex = index;
+  equipmentPhotoEditRotation = 0;
+  equipmentPhotoEditSelection = null;
+  equipmentPhotoEditDragStart = null;
+  $("equipmentPhotoEditCanvas").width = 0;
+  $("equipmentPhotoEditCanvas").height = 0;
+  $("rotateEquipmentPhotoBtn").disabled = true;
+  $("clearEquipmentPhotoCropBtn").disabled = true;
+  equipmentPhotoEditImage = new Image();
+  $("applyEquipmentPhotoEditBtn").disabled = true;
+  equipmentPhotoEditImage.onload = () => {
+    drawEquipmentPhotoEditCanvas();
+    $("rotateEquipmentPhotoBtn").disabled = false;
+    $("clearEquipmentPhotoCropBtn").disabled = false;
+    $("applyEquipmentPhotoEditBtn").disabled = false;
+  };
+  equipmentPhotoEditImage.onerror = () => {
+    equipmentPhotoEditImage = null;
+    toast("No fue posible abrir la foto para editarla.");
+  };
+  equipmentPhotoEditImage.src = photo;
+  openDialog("equipmentPhotoEditor");
+}
+function equipmentPhotoCanvasPoint(event) {
+  const canvas = $("equipmentPhotoEditCanvas");
+  const bounds = canvas.getBoundingClientRect();
+  return {
+    x: Math.max(0, Math.min(canvas.width, (event.clientX - bounds.left) * canvas.width / bounds.width)),
+    y: Math.max(0, Math.min(canvas.height, (event.clientY - bounds.top) * canvas.height / bounds.height))
+  };
+}
+function finishEquipmentPhotoCrop() {
+  const canvas = $("equipmentPhotoEditCanvas");
+  const selection = equipmentPhotoEditSelection;
+  const cropped = document.createElement("canvas");
+  if (selection && selection.width >= 2 && selection.height >= 2) {
+    cropped.width = Math.round(selection.width);
+    cropped.height = Math.round(selection.height);
+    cropped.getContext("2d").drawImage(
+      canvas,
+      selection.x, selection.y, selection.width, selection.height,
+      0, 0, cropped.width, cropped.height
+    );
+  } else {
+    cropped.width = canvas.width;
+    cropped.height = canvas.height;
+    cropped.getContext("2d").drawImage(canvas, 0, 0);
+  }
+  return compressEquipmentCanvas(cropped);
 }
 function setIncidentEvidence(photos = []) {
   incidentEvidenceData = photos.slice(0, 2);
@@ -143,31 +231,11 @@ function compressEquipmentPhoto(file) {
       URL.revokeObjectURL(objectUrl);
       try {
         const canvas = document.createElement("canvas");
-        let scale = Math.min(1, 1280 / Math.max(image.naturalWidth, image.naturalHeight));
-        const maxBytes = 100 * 1024;
-
-        for (let attempt = 0; attempt < 9; attempt++) {
-          canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
-          canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
-          canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
-          const quality = Math.max(0.5, 0.82 - attempt * 0.04);
-          const blob = await new Promise((toBlobResolve, toBlobReject) => {
-            canvas.toBlob(result => {
-              if (result) toBlobResolve(result);
-              else toBlobReject(new Error("No fue posible optimizar la foto."));
-            }, "image/jpeg", quality);
-          });
-          if (blob.size <= maxBytes) {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = () => reject(new Error("No fue posible leer la foto optimizada."));
-            reader.readAsDataURL(blob);
-            return;
-          }
-          scale *= 0.88;
-        }
-
-        reject(new Error("La foto es demasiado grande. Intenta tomarla con menor resolución."));
+        const scale = Math.min(1, 1280 / Math.max(image.naturalWidth, image.naturalHeight));
+        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+        canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+        compressEquipmentCanvas(canvas).then(resolve, reject);
       } catch (err) {
         reject(err);
       }
@@ -178,6 +246,34 @@ function compressEquipmentPhoto(file) {
     };
     image.src = objectUrl;
   });
+}
+async function compressEquipmentCanvas(sourceCanvas) {
+  const canvas = document.createElement("canvas");
+  let scale = Math.min(1, 1280 / Math.max(sourceCanvas.width, sourceCanvas.height));
+  const maxBytes = 100 * 1024;
+
+  for (let attempt = 0; attempt < 9; attempt++) {
+    canvas.width = Math.max(1, Math.round(sourceCanvas.width * scale));
+    canvas.height = Math.max(1, Math.round(sourceCanvas.height * scale));
+    canvas.getContext("2d").drawImage(sourceCanvas, 0, 0, canvas.width, canvas.height);
+    const quality = Math.max(0.5, 0.82 - attempt * 0.04);
+    const blob = await new Promise((resolve, reject) => {
+      canvas.toBlob(result => {
+        if (result) resolve(result);
+        else reject(new Error("No fue posible optimizar la foto."));
+      }, "image/jpeg", quality);
+    });
+    if (blob.size <= maxBytes) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error("No fue posible leer la foto optimizada."));
+        reader.readAsDataURL(blob);
+      });
+    }
+    scale *= 0.88;
+  }
+  throw new Error("La foto es demasiado grande. Intenta tomarla con menor resolución.");
 }
 async function handleEquipmentPhotoChange(event) {
   const file = event.target.files[0];
@@ -605,6 +701,13 @@ function setupPeripheralsSelect() {
   });
 }
 
+function updateOtherEquipmentTypeField() {
+  const isOther = $("type").value === "Otro";
+  $("otherEquipmentTypeField").hidden = !isOther;
+  $("otherEquipmentType").required = isOther;
+  if (!isOther) $("otherEquipmentType").value = "";
+}
+
 function resetEquipmentForm() {
   $("equipmentForm").reset();
   setEquipmentPhotos();
@@ -617,6 +720,8 @@ function resetEquipmentForm() {
   $("available").value = "si";
   $("equipmentStatus").value = "Bueno";
   $("type").value = "";
+  $("otherEquipmentType").value = "";
+  updateOtherEquipmentTypeField();
   setPeripheralsValue("");
   $("observations").value = "";
   $("assignedBy").value = "";
@@ -632,19 +737,19 @@ function editEquipment(id) {
   if (e.tipo) {
     const normalizedTarget = e.tipo.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
     const match = Array.from($("type").options).find(opt =>
-      opt.value.toLowerCase() === e.tipo.toLowerCase() ||
+      opt.value !== "Otro" && opt.value.toLowerCase() === e.tipo.toLowerCase() ||
       opt.value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() === normalizedTarget
     );
-    if (match) {
+    if (match && match.value !== "Otro") {
       $("type").value = match.value;
     } else {
-      const customOpt = new Option(e.tipo, e.tipo, true, true);
-      $("type").add(customOpt);
-      $("type").value = e.tipo;
+      $("type").value = "Otro";
+      $("otherEquipmentType").value = e.tipo === "Otro" ? "" : e.tipo;
     }
   } else {
     $("type").value = "";
   }
+  updateOtherEquipmentTypeField();
 
   if (e.estado) {
     const match = Array.from($("equipmentStatus").options).find(opt => opt.value.toLowerCase() === e.estado.toLowerCase());
@@ -796,11 +901,17 @@ async function saveEquipment(event) {
     serialInput.reportValidity();
     return;
   }
+  const selectedType = $("type").value;
+  const customType = $("otherEquipmentType").value.trim();
+  if (selectedType === "Otro" && !customType) {
+    $("otherEquipmentType").reportValidity();
+    return;
+  }
   const data = {
     marca: $("brand").value.trim(),
     serial: $("serial").value.trim(),
     referencia: $("serial").value.trim(),
-    tipo: $("type").value.trim(),
+    tipo: selectedType === "Otro" ? customType : selectedType.trim(),
     estado: $("equipmentStatus").value,
     disponible: $("available").value,
     noDisponiblePorNovedad: $("available").value === "si" ? false : equipment.find(item => item.id === id)?.noDisponiblePorNovedad || false,
@@ -1909,14 +2020,99 @@ $("confirmationAcceptBtn").addEventListener("click", () => {
 $("newEquipmentBtn").addEventListener("click",()=>{resetEquipmentForm();openDialog("equipmentDialog")});
 $("newEquipmentBtn2").addEventListener("click",()=>{resetEquipmentForm();openDialog("equipmentDialog")});
 $("serial").addEventListener("input", event => event.currentTarget.setCustomValidity(""));
+$("type").addEventListener("change", updateOtherEquipmentTypeField);
 $("equipmentForm").addEventListener("submit",saveEquipment);
 $("equipmentPhotoInput").addEventListener("change",handleEquipmentPhotoChange);
 $("equipmentPhotoPreview").addEventListener("click", event => {
-  const button = event.target.closest("[data-remove-equipment-photo]");
-  if (!button || equipmentPhotoProcessing) return;
-  const index = Number(button.dataset.removeEquipmentPhoto);
+  const editButton = event.target.closest("[data-edit-equipment-photo]");
+  if (editButton) {
+    openEquipmentPhotoEditor(Number(editButton.dataset.editEquipmentPhoto));
+    return;
+  }
+  const removeButton = event.target.closest("[data-remove-equipment-photo]");
+  if (!removeButton || equipmentPhotoProcessing) return;
+  const index = Number(removeButton.dataset.removeEquipmentPhoto);
   setEquipmentPhotos(equipmentPhotoData.filter((_, photoIndex) => photoIndex !== index));
   $("equipmentPhotoStatus").textContent = "La foto se quitará al guardar los cambios.";
+});
+$("rotateEquipmentPhotoBtn").addEventListener("click", () => {
+  if (!equipmentPhotoEditImage?.naturalWidth) return;
+  const previousHeight = $("equipmentPhotoEditCanvas").height;
+  if (equipmentPhotoEditSelection) {
+    const { x, y, width, height } = equipmentPhotoEditSelection;
+    equipmentPhotoEditSelection = {
+      x: previousHeight - y - height,
+      y: x,
+      width: height,
+      height: width
+    };
+  }
+  equipmentPhotoEditRotation = (equipmentPhotoEditRotation + 90) % 360;
+  drawEquipmentPhotoEditCanvas();
+});
+$("clearEquipmentPhotoCropBtn").addEventListener("click", () => {
+  if (!equipmentPhotoEditImage?.naturalWidth) return;
+  equipmentPhotoEditSelection = null;
+  drawEquipmentPhotoEditCanvas();
+});
+$("equipmentPhotoEditCanvas").addEventListener("pointerdown", event => {
+  if (!equipmentPhotoEditImage?.naturalWidth) return;
+  equipmentPhotoEditDragStart = equipmentPhotoCanvasPoint(event);
+  equipmentPhotoEditSelection = { x: equipmentPhotoEditDragStart.x, y: equipmentPhotoEditDragStart.y, width: 0, height: 0 };
+  event.currentTarget.setPointerCapture(event.pointerId);
+  drawEquipmentPhotoEditCanvas();
+});
+$("equipmentPhotoEditCanvas").addEventListener("pointermove", event => {
+  if (!equipmentPhotoEditDragStart) return;
+  const point = equipmentPhotoCanvasPoint(event);
+  const x = Math.min(equipmentPhotoEditDragStart.x, point.x);
+  const y = Math.min(equipmentPhotoEditDragStart.y, point.y);
+  equipmentPhotoEditSelection = {
+    x,
+    y,
+    width: Math.abs(point.x - equipmentPhotoEditDragStart.x),
+    height: Math.abs(point.y - equipmentPhotoEditDragStart.y)
+  };
+  drawEquipmentPhotoEditCanvas();
+});
+function endEquipmentPhotoCropSelection() {
+  equipmentPhotoEditDragStart = null;
+  if (equipmentPhotoEditSelection?.width < 2 || equipmentPhotoEditSelection?.height < 2) {
+    equipmentPhotoEditSelection = null;
+  }
+  drawEquipmentPhotoEditCanvas();
+}
+$("equipmentPhotoEditCanvas").addEventListener("pointerup", endEquipmentPhotoCropSelection);
+$("equipmentPhotoEditCanvas").addEventListener("pointercancel", endEquipmentPhotoCropSelection);
+$("applyEquipmentPhotoEditBtn").addEventListener("click", async () => {
+  if (equipmentPhotoEditIndex < 0 || !equipmentPhotoEditImage) return;
+  const editIndex = equipmentPhotoEditIndex;
+  const editSession = equipmentPhotoEditSession;
+  const button = $("applyEquipmentPhotoEditBtn");
+  button.disabled = true;
+  try {
+    const editedPhoto = await finishEquipmentPhotoCrop();
+    if (!$("equipmentPhotoEditor").open || equipmentPhotoEditSession !== editSession) return;
+    equipmentPhotoData[editIndex] = editedPhoto;
+    setEquipmentPhotos(equipmentPhotoData);
+    $("equipmentPhotoStatus").textContent = `Foto ${editIndex + 1} girada o recortada.`;
+    closeDialog("equipmentPhotoEditor");
+  } catch (err) {
+    console.error(err);
+    toast(err.message || "No fue posible aplicar los cambios a la foto.");
+  } finally {
+    if (equipmentPhotoEditSession === editSession) button.disabled = false;
+  }
+});
+$("equipmentPhotoEditor").addEventListener("close", () => {
+  equipmentPhotoEditSession += 1;
+  equipmentPhotoEditIndex = -1;
+  equipmentPhotoEditImage = null;
+  equipmentPhotoEditSelection = null;
+  equipmentPhotoEditDragStart = null;
+  const canvas = $("equipmentPhotoEditCanvas");
+  canvas.width = 0;
+  canvas.height = 0;
 });
 $("assignmentForm").addEventListener("submit",saveAssignment);
 $("returnForm").addEventListener("submit",saveReturn);

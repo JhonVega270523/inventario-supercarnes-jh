@@ -2,7 +2,8 @@
 
 Aplicación responsive en HTML, CSS y JavaScript con Cloud Firestore. Incluye:
 - Registro y edición de equipos.
-- Captura o selección de hasta cuatro fotos por equipo desde el formulario de registro, con vista previa, eliminación individual y optimización automática.
+- Captura o selección de hasta cuatro fotos por equipo desde el formulario de registro, con vista previa, giro y recorte individuales, eliminación y optimización automática.
+- Tipo de equipo personalizado: al seleccionar “Otro” en el inventario maestro, se solicita especificar el tipo.
 - Eliminación permanente de equipos desde el inventario, con confirmación antes de borrar.
 - Confirmaciones con diálogos personalizados acordes al diseño del sistema.
 - Los formularios de equipo, asignación y recepción se cierran inmediatamente al guardar; si el guardado falla, vuelven a abrirse con los datos ingresados. Los diálogos también se pueden cerrar haciendo clic fuera de ellos.

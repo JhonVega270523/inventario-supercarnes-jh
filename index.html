@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261027_7">
+  <link rel="stylesheet" href="styles.css?v=20261030_2">
 </head>
 <body>
   <div class="app-shell">
@@ -145,6 +145,9 @@
             <option value="Otro">Otro</option>
           </select>
         </label>
+        <label id="otherEquipmentTypeField" class="full" hidden>Especifica el tipo de equipo
+          <input id="otherEquipmentType" maxlength="80" placeholder="Ej. Lector de código de barras">
+        </label>
         <label>Estado del equipo
           <select id="equipmentStatus" required>
             <option value="Nuevo">Nuevo</option>
@@ -163,7 +166,7 @@
               <input id="equipmentPhotoInput" class="equipment-photo-input" type="file" accept="image/*" capture="environment" aria-describedby="equipmentPhotoHelp equipmentPhotoStatus">
             </label>
           </div>
-          <p id="equipmentPhotoHelp" class="equipment-photo-help">Agrega las fotos una por una. En celulares se abrirá la cámara; cada imagen se optimiza para guardarse con el equipo.</p>
+          <p id="equipmentPhotoHelp" class="equipment-photo-help">Agrega las fotos una por una. En celulares se abrirá la cámara; desde la vista previa puedes girar o recortar cada imagen antes de guardar.</p>
           <p id="equipmentPhotoStatus" class="equipment-photo-status" role="status" aria-live="polite"></p>
           <div id="equipmentPhotoPreview" class="equipment-photo-gallery" hidden></div>
         </div>
@@ -209,6 +212,27 @@
       </div>
       <div class="modal-actions"><button type="button" class="btn btn-outline" data-close="equipmentDialog">Cancelar</button><button class="btn btn-primary" type="submit">Guardar equipo</button></div>
     </form>
+  </dialog>
+
+  <dialog id="equipmentPhotoEditor" class="modal equipment-photo-editor">
+    <div class="modal-form">
+      <div class="modal-header">
+        <div><p class="eyebrow">EDITAR FOTO</p><h2>Girar o recortar</h2></div>
+        <button type="button" class="icon-btn" data-close="equipmentPhotoEditor" aria-label="Cerrar editor de foto">✕</button>
+      </div>
+      <p class="equipment-photo-editor-help">Gira la imagen o arrastra sobre ella para seleccionar el área que deseas conservar.</p>
+      <div class="equipment-photo-canvas-wrap">
+        <canvas id="equipmentPhotoEditCanvas" tabindex="0" aria-label="Vista de la foto. Arrastra para seleccionar el recorte."></canvas>
+      </div>
+      <div class="equipment-photo-editor-controls">
+        <button type="button" class="btn btn-outline" id="rotateEquipmentPhotoBtn">↻ Girar 90°</button>
+        <button type="button" class="btn btn-outline" id="clearEquipmentPhotoCropBtn">Quitar selección</button>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" data-close="equipmentPhotoEditor">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="applyEquipmentPhotoEditBtn" disabled>Aplicar cambios</button>
+      </div>
+    </div>
   </dialog>
 
   <dialog id="assignmentDialog" class="modal">
@@ -368,6 +392,6 @@
   <button type="button" id="scrollToTopBtn" class="scroll-to-top" aria-label="Volver arriba" title="Volver arriba" hidden>↑</button>
   <script src="xlsx.full.min.js" onerror="this.onerror=null;this.src='https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js'"></script>
   <script src="html2pdf.bundle.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'"></script>
-  <script type="module" src="app.js?v=20261028_2"></script>
+  <script type="module" src="app.js?v=20261030_1"></script>
 </body>
 </html>
