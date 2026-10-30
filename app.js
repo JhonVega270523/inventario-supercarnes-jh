@@ -725,6 +725,7 @@ function resetEquipmentForm() {
   setPeripheralsValue("");
   $("observations").value = "";
   $("assignedBy").value = "";
+  $("equipmentEmail").value = "";
 }
 
 function editEquipment(id) {
@@ -768,6 +769,7 @@ function editEquipment(id) {
   setEquipmentPhotos(getEquipmentPhotos(e));
   setPeripheralsValue(e.perifericos || "");
   $("observations").value = e.observaciones || "";
+  $("equipmentEmail").value = e.correo || "";
 
   const regValue = e.registradoPor || e.asignadoPor || "";
   if (regValue) {
@@ -917,6 +919,7 @@ async function saveEquipment(event) {
     noDisponiblePorNovedad: $("available").value === "si" ? false : equipment.find(item => item.id === id)?.noDisponiblePorNovedad || false,
     perifericos: $("peripherals").value.trim(),
     observaciones: $("observations").value.trim(),
+    correo: $("equipmentEmail").value.trim(),
     fotos: equipmentPhotoData,
     foto: equipmentPhotoData[0] || "",
     asignadoPor: $("assignedBy").value.trim(),
@@ -1057,6 +1060,7 @@ function showDetail(id) {
     <div class="detail-item"><small>Disponibilidad</small><strong>${availabilityPill(e.disponible, e.estado)}</strong>${e.noDisponiblePorNovedad ? '<span class="subtext">Bloqueado por una novedad; puedes restablecerlo al editar el equipo.</span>' : ""}</div>
     <div class="detail-item"><small>Periféricos actuales</small><strong>${escapeHTML(e.perifericos || "—")}</strong></div>
     <div class="detail-item full"><small>Registrado por</small><strong>${escapeHTML(e.registradoPor || e.asignadoPor || "—")}</strong></div>
+    ${e.correo ? `<div class="detail-item full"><small>Correo electrónico</small><strong>${escapeHTML(e.correo)}</strong></div>` : ""}
     <div class="detail-item full detail-notes-card">
       <div class="detail-notes-header">
         <small>Observaciones del equipo</small>

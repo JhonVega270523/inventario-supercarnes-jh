@@ -55,7 +55,7 @@ La PWA conserva en caché los archivos estáticos para poder abrir la interfaz; 
 
 ## 5. Estructura de Firestore
 Colección `equipos`, un documento por equipo:
-- `marca`, `tipo`, `estado`, `disponible`, `noDisponiblePorNovedad`, `perifericos`, `observaciones`, `asignadoPor`
+- `marca`, `tipo`, `estado`, `disponible`, `noDisponiblePorNovedad`, `perifericos`, `observaciones`, `correo` (opcional), `asignadoPor`
 - `fotos`: arreglo de hasta cuatro imágenes JPEG optimizadas y codificadas en base64. El campo `foto` conserva la primera imagen para compatibilidad con documentos existentes.
 - `asignaciones`: arreglo de registros de asignación, cada uno con datos de entrega y firma en base64.
 - `recepciones`: arreglo de registros de recepción, cada uno con datos de devolución, responsable que recibe y firma en base64.
