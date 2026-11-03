@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261030_2">
+  <link rel="stylesheet" href="styles.css?v=20261104_1">
 </head>
 <body>
   <div class="app-shell">
@@ -29,6 +29,7 @@
       <nav aria-label="Navegación principal">
         <button class="nav-item active" data-view="dashboard" aria-current="page"><span>▦</span> Panel general</button>
         <button class="nav-item" data-view="inventory"><span>▤</span> Inventario</button>
+        <button class="nav-item" data-view="tools"><span>⚒</span> Herramientas</button>
         <button class="nav-item" data-view="assignments"><span>↗</span> Asignaciones</button>
         <button class="nav-item" data-view="returns"><span>↙</span> Recepciones</button>
       </nav>
@@ -98,6 +99,41 @@
           <th>Acciones</th>
         </tr></thead><tbody id="inventoryTable"><tr><td colspan="10" class="empty-cell">Cargando inventario...</td></tr></tbody></table></div></div>
         <div class="table-pagination-footer"><p class="table-footnote" id="inventoryCount">0 equipos</p><nav class="table-pagination" id="inventoryPagination" aria-label="Paginación del inventario"></nav></div>
+      </section>
+
+      <section class="view" id="toolsView">
+        <div class="section-heading">
+          <div><h3>Inventario de herramientas</h3><p>Control de existencias por tipo de herramienta</p></div>
+          <div class="heading-actions">
+            <button type="button" class="btn btn-outline" id="exportToolsExcelBtn">📥 Exportar a Excel</button>
+            <button type="button" class="btn btn-primary" id="newToolBtn">＋ Agregar herramienta</button>
+          </div>
+        </div>
+        <div class="stats-grid tools-stats-grid">
+          <article class="stat-card"><div class="stat-icon red">⚒</div><div><span>Registros de herramientas</span><strong id="toolTypeCount">0</strong><small>Tipos registrados en el inventario</small></div></article>
+          <article class="stat-card"><div class="stat-icon green">▤</div><div><span>Existencias disponibles</span><strong id="toolStockCount">0</strong><small>Unidades registradas</small></div></article>
+        </div>
+        <div class="section-heading tools-chart-heading"><div><h3>Distribución de herramientas</h3><p>Selecciona una barra para filtrar el inventario</p></div></div>
+        <div class="dashboard-charts tools-charts">
+          <section class="chart-card" aria-labelledby="toolTypeChartTitle">
+            <h4 id="toolTypeChartTitle">Existencias por herramienta</h4>
+            <div id="toolTypeChart" class="chart-list"></div>
+          </section>
+          <section class="chart-card" aria-labelledby="toolStockChartTitle">
+            <h4 id="toolStockChartTitle">Estado de existencias</h4>
+            <div id="toolStockChart" class="chart-list"></div>
+          </section>
+        </div>
+        <div class="toolbar">
+          <div class="search-box"><label for="toolSearchInput" class="visually-hidden">Buscar herramientas</label><span aria-hidden="true">⌕</span><input id="toolSearchInput" type="search" placeholder="Buscar por nombre u observaciones..."></div>
+          <select id="toolTypeFilter" aria-label="Filtrar por herramienta"><option value="">Todas las herramientas</option></select>
+          <select id="toolStockFilter" aria-label="Filtrar por existencias"><option value="">Todas las existencias</option><option value="available">Con existencias</option><option value="empty">Sin existencias</option></select>
+          <button type="button" class="btn btn-outline" id="clearToolFiltersBtn">Limpiar filtros</button>
+        </div>
+        <div class="table-card"><div class="table-wrap"><table>
+          <thead><tr><th>Foto</th><th>Herramienta</th><th>Existencias</th><th>Observaciones</th><th>Acciones</th></tr></thead>
+          <tbody id="toolsTable"><tr><td colspan="5" class="empty-cell">Conecta Firebase para cargar las herramientas.</td></tr></tbody>
+        </table></div></div>
       </section>
 
       <section class="view" id="assignmentsView">
@@ -246,6 +282,45 @@
         <button type="button" class="btn btn-primary" id="applyEquipmentPhotoEditBtn" disabled>Aplicar cambios</button>
       </div>
     </div>
+  </dialog>
+
+  <dialog id="toolDialog" class="modal">
+    <form id="toolForm" class="modal-form">
+      <div class="modal-header">
+        <div><p class="eyebrow">INVENTARIO DE HERRAMIENTAS</p><h2 id="toolDialogTitle">Agregar herramienta</h2></div>
+        <button type="button" class="icon-btn" data-close="toolDialog" aria-label="Cerrar formulario">✕</button>
+      </div>
+      <input type="hidden" id="toolId">
+      <div class="form-grid">
+        <label class="full">Nombre de la herramienta
+          <input id="toolName" list="toolSuggestions" maxlength="80" required placeholder="Ej. Multímetro">
+          <datalist id="toolSuggestions">
+            <option value="Alicate"></option>
+            <option value="Destornillador"></option>
+            <option value="Multímetro"></option>
+            <option value="Pela cables"></option>
+            <option value="Pinzas"></option>
+          </datalist>
+        </label>
+        <div class="full tool-photo-field">
+          <label for="toolPhotoInput" class="field-label">Foto de la herramienta (opcional)</label>
+          <input id="toolPhotoInput" type="file" accept="image/*" capture="environment" aria-describedby="toolPhotoHelp toolPhotoStatus">
+          <p id="toolPhotoHelp" class="equipment-photo-help">Selecciona una foto o tómala con la cámara. Se optimiza antes de guardarse.</p>
+          <p id="toolPhotoStatus" class="equipment-photo-status" role="status" aria-live="polite"></p>
+          <div id="toolPhotoPreview" class="equipment-photo-gallery" hidden></div>
+        </div>
+        <label class="full">Cantidad disponible
+          <input id="toolQuantity" type="number" min="0" max="1000000" step="1" required value="0">
+        </label>
+        <label class="full">Observaciones (opcional)
+          <textarea id="toolNotes" rows="3" maxlength="500" placeholder="Marca, ubicación u otros detalles..."></textarea>
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" data-close="toolDialog">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Guardar herramienta</button>
+      </div>
+    </form>
   </dialog>
 
   <dialog id="assignmentDialog" class="modal">
@@ -415,6 +490,6 @@
   <script src="xlsx.full.min.js" onerror="this.onerror=null;this.src='https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js'"></script>
   <script src="html2pdf.bundle.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'"></script>
   <script src="./pwa.js" defer></script>
-  <script type="module" src="app.js?v=20261030_1"></script>
+  <script type="module" src="app.js?v=20261104_1"></script>
 </body>
 </html>

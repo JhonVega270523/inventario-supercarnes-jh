@@ -6,5 +6,10 @@ service cloud.firestore {
       // No publiques estas reglas en producción.
       allow read, write: if true;
     }
+    match /herramientas/{herramientaId} {
+      // DEMO solamente: permite lectura/escritura a cualquier visitante.
+      // No publiques estas reglas en producción.
+      allow read, write: if true;
+    }
   }
 }

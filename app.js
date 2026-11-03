@@ -5,8 +5,13 @@ import { LOGO_JH_DATA_URL } from "./logo-data.js";
 
 const $ = id => document.getElementById(id);
 const equipmentCollection = "equipos";
+const toolsCollection = "herramientas";
 let db = null;
 let equipment = [];
+let tools = [];
+let toolPhotoData = "";
+let toolPhotoProcessing = false;
+let toolPhotoSession = 0;
 let currentDetailEquipmentId = null;
 let incidentReturnToDetail = false;
 let toastTimer;
@@ -409,6 +414,225 @@ function listenToEquipment() {
     document.querySelector(".connection-dot").style.background = "#b5121b";
     toast("No fue posible sincronizar Firestore. Revisa la conexión, las reglas y la configuración.");
   });
+}
+function listenToTools() {
+  if (!db) return;
+  onSnapshot(collection(db, toolsCollection), snapshot => {
+    tools = snapshot.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => String(a.nombre || "").localeCompare(String(b.nombre || ""), "es", { sensitivity: "base" }));
+    renderTools();
+  }, err => {
+    console.error(err);
+    toast("No fue posible sincronizar el inventario de herramientas. Revisa la conexión y las reglas de Firebase.");
+  });
+}
+function toolPhotoCell(tool) {
+  if (typeof tool.foto !== "string" || !tool.foto.startsWith("data:image/jpeg;base64,")) {
+    return '<span class="equipment-table-photo-empty" aria-label="Sin foto">—</span>';
+  }
+  const name = tool.nombre || "herramienta";
+  return `<button type="button" class="equipment-table-photo" data-view-tool-photo="${escapeHTML(tool.id)}" aria-label="Ver foto de ${escapeHTML(name)}" title="Ver foto de ${escapeHTML(name)}"><img src="${escapeHTML(tool.foto)}" alt="Foto de ${escapeHTML(name)}"></button>`;
+}
+function setToolPhoto(photo = "") {
+  toolPhotoData = photo;
+  const preview = $("toolPhotoPreview");
+  preview.innerHTML = photo ? `
+    <div class="equipment-photo-card">
+      <img src="${escapeHTML(photo)}" alt="Vista previa de la herramienta">
+      <button type="button" class="btn btn-outline equipment-photo-remove" data-remove-tool-photo>Quitar foto</button>
+    </div>` : "";
+  preview.hidden = !photo;
+  $("toolPhotoInput").disabled = toolPhotoProcessing;
+}
+async function handleToolPhotoChange(event) {
+  const input = event.currentTarget;
+  const file = input.files?.[0];
+  if (!file) return;
+  const session = ++toolPhotoSession;
+  toolPhotoProcessing = true;
+  setToolPhoto(toolPhotoData);
+  $("toolPhotoStatus").textContent = "Optimizando foto…";
+  try {
+    const photo = await compressEquipmentPhoto(file);
+    if (session !== toolPhotoSession) return;
+    setToolPhoto(photo);
+    $("toolPhotoStatus").textContent = "Foto lista para guardar.";
+  } catch (err) {
+    console.error(err);
+    if (session !== toolPhotoSession) return;
+    $("toolPhotoStatus").textContent = "";
+    toast(err.message || "No fue posible procesar la foto.");
+  } finally {
+    if (session === toolPhotoSession) {
+      toolPhotoProcessing = false;
+      setToolPhoto(toolPhotoData);
+      input.value = "";
+    }
+  }
+}
+function filteredTools() {
+  const search = $("toolSearchInput").value.trim().toLocaleLowerCase("es");
+  const stockFilter = $("toolStockFilter").value;
+  const typeFilter = $("toolTypeFilter");
+  const previousType = typeFilter.value;
+  typeFilter.replaceChildren(new Option("Todas las herramientas", ""));
+  tools.forEach(tool => typeFilter.add(new Option(tool.nombre || "Sin nombre", tool.id)));
+  const selectedType = tools.some(tool => tool.id === previousType) ? previousType : "";
+  typeFilter.value = selectedType;
+  return tools.filter(tool => {
+    const quantity = Number.isSafeInteger(tool.cantidad) ? tool.cantidad : 0;
+    return [tool.nombre, tool.observaciones].filter(Boolean).join(" ").toLocaleLowerCase("es").includes(search) &&
+      (!selectedType || tool.id === selectedType) &&
+      (!stockFilter || (stockFilter === "available" ? quantity > 0 : quantity === 0));
+  });
+}
+function renderTools() {
+  const filtered = filteredTools();
+  $("toolTypeCount").textContent = tools.length;
+  $("toolStockCount").textContent = tools.reduce((total, tool) => total + (Number.isSafeInteger(tool.cantidad) && tool.cantidad > 0 ? tool.cantidad : 0), 0);
+  renderToolCharts();
+  $("toolsTable").innerHTML = filtered.length ? filtered.map(tool => `
+    <tr>
+      <td>${toolPhotoCell(tool)}</td>
+      <td><strong class="equipment-name">${escapeHTML(tool.nombre || "Sin nombre")}</strong></td>
+      <td>${Number.isSafeInteger(tool.cantidad) && tool.cantidad >= 0 ? tool.cantidad : "—"}</td>
+      <td>${escapeHTML(tool.observaciones || "—")}</td>
+      <td>
+        <div class="actions">
+          <button type="button" class="action-btn" data-tool-action="edit" data-tool-id="${escapeHTML(tool.id)}" aria-label="Editar ${escapeHTML(tool.nombre || "herramienta")}" title="Editar">✎</button>
+          <button type="button" class="action-btn action-btn-delete" data-tool-action="delete" data-tool-id="${escapeHTML(tool.id)}" aria-label="Eliminar ${escapeHTML(tool.nombre || "herramienta")}" title="Eliminar">⌫</button>
+        </div>
+      </td>
+    </tr>`).join("") : `<tr><td colspan="5" class="empty-cell">${tools.length ? "No hay herramientas que coincidan con los filtros." : "Aún no hay herramientas registradas."}</td></tr>`;
+}
+function renderToolCharts() {
+  const sortedTools = [...tools].sort((a, b) =>
+    (Number(b.cantidad) || 0) - (Number(a.cantidad) || 0) ||
+    String(a.nombre || "").localeCompare(String(b.nombre || ""), "es", { sensitivity: "base" })
+  ).slice(0, 6);
+  const maxQuantity = Math.max(1, ...sortedTools.map(tool => Number.isSafeInteger(tool.cantidad) ? tool.cantidad : 0));
+  $("toolTypeChart").innerHTML = sortedTools.length ? sortedTools.map(tool => {
+    const quantity = Number.isSafeInteger(tool.cantidad) && tool.cantidad > 0 ? tool.cantidad : 0;
+    const width = Math.round(quantity / maxQuantity * 100);
+    return `<button type="button" class="chart-row" data-tool-chart-type="${escapeHTML(tool.id)}" aria-label="Filtrar por ${escapeHTML(tool.nombre || "herramienta")}: ${quantity} unidades">
+      <span class="chart-row-label">${escapeHTML(tool.nombre || "Sin nombre")}</span><span class="chart-track" aria-hidden="true"><span class="chart-bar" style="width:${width}%"></span></span><strong>${quantity}</strong>
+    </button>`;
+  }).join("") : '<p class="chart-empty">No hay herramientas registradas todavía.</p>';
+
+  if (!tools.length) {
+    $("toolStockChart").innerHTML = '<p class="chart-empty">No hay datos para mostrar todavía.</p>';
+    return;
+  }
+  const withStock = tools.filter(tool => Number.isSafeInteger(tool.cantidad) && tool.cantidad > 0).length;
+  const withoutStock = tools.length - withStock;
+  const entries = [["Con existencias", withStock, "available"], ["Sin existencias", withoutStock, "empty"]];
+  const maxCount = Math.max(1, ...entries.map(([, count]) => count));
+  $("toolStockChart").innerHTML = entries.map(([label, count, value]) => {
+    const width = Math.round(count / maxCount * 100);
+    return `<button type="button" class="chart-row" data-tool-chart-stock="${value}" aria-label="Filtrar ${label.toLocaleLowerCase("es")}: ${count} tipos">
+      <span class="chart-row-label">${label}</span><span class="chart-track" aria-hidden="true"><span class="chart-bar" style="width:${width}%"></span></span><strong>${count}</strong>
+    </button>`;
+  }).join("");
+}
+function resetToolForm() {
+  toolPhotoSession += 1;
+  toolPhotoProcessing = false;
+  $("toolForm").reset();
+  $("toolId").value = "";
+  $("toolName").value = "";
+  $("toolQuantity").value = "0";
+  $("toolNotes").value = "";
+  $("toolDialogTitle").textContent = "Agregar herramienta";
+  $("toolPhotoStatus").textContent = "";
+  setToolPhoto();
+}
+function openNewToolForm() {
+  resetToolForm();
+  openDialog("toolDialog");
+}
+function editTool(id) {
+  const tool = tools.find(item => item.id === id);
+  if (!tool) return;
+  toolPhotoSession += 1;
+  toolPhotoProcessing = false;
+  $("toolId").value = tool.id;
+  $("toolName").value = tool.nombre || "";
+  $("toolQuantity").value = Number.isSafeInteger(tool.cantidad) && tool.cantidad >= 0 ? String(tool.cantidad) : "0";
+  $("toolNotes").value = tool.observaciones || "";
+  $("toolPhotoStatus").textContent = "";
+  $("toolPhotoInput").value = "";
+  setToolPhoto(tool.foto || "");
+  $("toolDialogTitle").textContent = "Editar herramienta";
+  openDialog("toolDialog");
+}
+async function saveTool(event) {
+  event.preventDefault();
+  if (toolPhotoProcessing) {
+    toast("Espera a que termine de procesarse la foto.");
+    return;
+  }
+  const id = $("toolId").value;
+  const name = $("toolName").value.trim();
+  const quantity = Number($("toolQuantity").value);
+  if (!name || !Number.isSafeInteger(quantity) || quantity < 0 || quantity > 1000000) {
+    toast("Ingresa un nombre y una cantidad válida entre 0 y 1.000.000.");
+    return;
+  }
+  const duplicate = tools.find(tool => tool.id !== id && String(tool.nombre || "").trim().toLocaleLowerCase("es") === name.toLocaleLowerCase("es"));
+  if (duplicate) {
+    $("toolName").setCustomValidity("Ya existe una herramienta con este nombre.");
+    $("toolName").reportValidity();
+    return;
+  }
+  $("toolName").setCustomValidity("");
+  if (!db) {
+    toast("Configura Firebase para guardar las herramientas.");
+    return;
+  }
+  const data = {
+    nombre: name,
+    cantidad: quantity,
+    observaciones: $("toolNotes").value.trim(),
+    foto: toolPhotoData,
+    updatedAt: serverTimestamp()
+  };
+  closeDialog("toolDialog");
+  toast(id ? "Actualizando herramienta..." : "Guardando herramienta...");
+  try {
+    if (id) await updateDoc(doc(db, toolsCollection, id), data);
+    else await addDoc(collection(db, toolsCollection), { ...data, createdAt: serverTimestamp() });
+    toast(id ? "Herramienta actualizada correctamente." : "Herramienta agregada correctamente.");
+  } catch (err) {
+    console.error(err);
+    openDialog("toolDialog");
+    toast("No se pudo guardar la herramienta. Verifica la conexión y las reglas de Firebase.");
+  }
+}
+async function deleteTool(id, button) {
+  const tool = tools.find(item => item.id === id);
+  if (!tool) return;
+  if (!db) {
+    toast("Configura Firebase para eliminar herramientas.");
+    return;
+  }
+  if (!await confirmAction({
+    title: "¿Eliminar esta herramienta?",
+    message: `Se eliminará "${tool.nombre || "herramienta"}" del inventario. Esta acción no se puede deshacer.`,
+    confirmText: "Eliminar herramienta",
+    destructive: true
+  })) return;
+
+  if (button) button.disabled = true;
+  try {
+    await deleteDoc(doc(db, toolsCollection, id));
+    toast(`"${tool.nombre || "La herramienta"}" fue eliminada del inventario.`);
+  } catch (err) {
+    console.error(err);
+    toast("No se pudo eliminar la herramienta. Verifica la conexión y las reglas de Firebase.");
+  } finally {
+    if (button) button.disabled = false;
+  }
 }
 function renderAll() {
   const total = equipment.length;
@@ -1866,6 +2090,38 @@ function exportToExcel() {
   toast(`Exportados ${itemsToExport.length} equipo(s) a ${fileName}`);
 }
 
+function exportToolsToExcel() {
+  const itemsToExport = filteredTools();
+  if (!itemsToExport.length) {
+    toast("No hay herramientas para exportar con los filtros actuales.");
+    return;
+  }
+  const headers = ["Herramienta", "Existencias", "Observaciones", "Foto registrada"];
+  const rows = itemsToExport.map(tool => [
+    tool.nombre || "",
+    Number.isSafeInteger(tool.cantidad) && tool.cantidad >= 0 ? tool.cantidad : "",
+    tool.observaciones || "",
+    typeof tool.foto === "string" && tool.foto.startsWith("data:image/jpeg;base64,") ? "Sí" : "No"
+  ]);
+  const fileName = `Inventario_Herramientas_Supercarnes_JH_${today()}.xlsx`;
+  const blob = createExcelFile(
+    headers,
+    rows,
+    "INVENTARIO DE HERRAMIENTAS - SUPERCARNES JH",
+    `Registros exportados: ${itemsToExport.length} | Fecha: ${today()}`,
+    "Herramientas"
+  );
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  toast(`Exportadas ${itemsToExport.length} herramienta(s) a ${fileName}`);
+}
+
 function downloadExcelExport(headers, rows, title, prefix, sheetName, recordName) {
   if (!rows.length) {
     toast(`No hay ${recordName} para exportar.`);
@@ -1932,6 +2188,7 @@ function exportReturnsToExcel() {
 }
 
 function navigate(view) {
+  if (!$(`${view}View`)) return;
   document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
   document.querySelectorAll(".nav-item").forEach(b => {
     const active = b.dataset.view === view;
@@ -1940,7 +2197,7 @@ function navigate(view) {
     else b.removeAttribute("aria-current");
   });
   $(`${view}View`).classList.add("active");
-  const titles={dashboard:"Panel general",inventory:"Inventario de equipos",assignments:"Historial de asignaciones",returns:"Historial de recepciones"};
+  const titles={dashboard:"Panel general",inventory:"Inventario de equipos",tools:"Inventario de herramientas",assignments:"Historial de asignaciones",returns:"Historial de recepciones"};
   $("pageTitle").textContent=titles[view]||"Panel general";
   $("newEquipmentBtn").hidden = view !== "dashboard";
   $("sidebar").classList.remove("open");
@@ -1955,6 +2212,36 @@ document.querySelectorAll("dialog").forEach(dialog => {
 });
 document.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click",()=>closeDialog(b.dataset.close)));
 $("brandLogoButton").addEventListener("click", () => $("brandLogoViewer").showModal());
+$("newToolBtn").addEventListener("click", openNewToolForm);
+$("toolForm").addEventListener("submit", saveTool);
+$("toolName").addEventListener("input", event => event.currentTarget.setCustomValidity(""));
+$("toolSearchInput").addEventListener("input", renderTools);
+$("toolTypeFilter").addEventListener("change", renderTools);
+$("toolStockFilter").addEventListener("change", renderTools);
+$("clearToolFiltersBtn").addEventListener("click", () => {
+  $("toolSearchInput").value = "";
+  $("toolTypeFilter").value = "";
+  $("toolStockFilter").value = "";
+  renderTools();
+});
+$("toolPhotoInput").addEventListener("change", handleToolPhotoChange);
+$("toolPhotoPreview").addEventListener("click", event => {
+  if (!event.target.closest("[data-remove-tool-photo]") || toolPhotoProcessing) return;
+  setToolPhoto();
+  $("toolPhotoStatus").textContent = "La foto se quitará al guardar los cambios.";
+});
+$("toolsTable").addEventListener("click", event => {
+  const photoButton = event.target.closest("[data-view-tool-photo]");
+  if (photoButton) {
+    const tool = tools.find(item => item.id === photoButton.dataset.viewToolPhoto);
+    if (tool?.foto) openEquipmentPhotoViewer([{ src: tool.foto, alt: `Foto de ${tool.nombre || "herramienta"}` }]);
+    return;
+  }
+  const button = event.target.closest("[data-tool-action]");
+  if (!button) return;
+  if (button.dataset.toolAction === "edit") editTool(button.dataset.toolId);
+  else if (button.dataset.toolAction === "delete") deleteTool(button.dataset.toolId, button);
+});
 $("incidentDialog").addEventListener("close", () => {
   if (!incidentReturnToDetail || !currentDetailEquipmentId) return;
   incidentReturnToDetail = false;
@@ -2154,6 +2441,20 @@ document.querySelectorAll(".table-sort").forEach(button => button.addEventListen
   else if (sortTable === "returns") renderReturns();
 }));
 document.addEventListener("click", event => {
+  const toolTypeChartButton = event.target.closest("[data-tool-chart-type]");
+  if (toolTypeChartButton) {
+    navigate("tools");
+    $("toolTypeFilter").value = toolTypeChartButton.dataset.toolChartType;
+    renderTools();
+    return;
+  }
+  const toolStockChartButton = event.target.closest("[data-tool-chart-stock]");
+  if (toolStockChartButton) {
+    navigate("tools");
+    $("toolStockFilter").value = toolStockChartButton.dataset.toolChartStock;
+    renderTools();
+    return;
+  }
   const clearButton = event.target.closest("[data-clear-filters]");
   if (clearButton) {
     clearInventoryFilters();
@@ -2252,6 +2553,7 @@ document.addEventListener("click", event => {
   $("mobileMenu").setAttribute("aria-expanded", "false");
 });
 $("exportExcelBtn")?.addEventListener("click",exportToExcel);
+$("exportToolsExcelBtn")?.addEventListener("click", exportToolsToExcel);
 $("exportAssignmentsBtn")?.addEventListener("click",exportAssignmentsToExcel);
 $("exportReturnsBtn")?.addEventListener("click",exportReturnsToExcel);
 $("downloadPdfBtn")?.addEventListener("click", () => {
@@ -2269,11 +2571,15 @@ if (!configReady) {
   $("setupNotice").hidden=false;
   ["statTotal","statAvailable","statAssigned","statOther"].forEach(id=>$(id).textContent="—");
   $("inventoryTable").innerHTML='<tr><td colspan="10" class="empty-cell">Configura Firebase para comenzar a registrar equipos.</td></tr>';
+  $("toolsTable").innerHTML='<tr><td colspan="4" class="empty-cell">Configura Firebase para comenzar a registrar herramientas.</td></tr>';
+  $("toolTypeCount").textContent="—";
+  $("toolStockCount").textContent="—";
 } else {
   try {
     const app=initializeApp(firebaseConfig); db=getFirestore(app);
     $("connectionText").textContent="Conectando a Firebase…";
     $("setupNotice").hidden=true;
     listenToEquipment();
+    listenToTools();
   } catch(err) { console.error(err); $("connectionText").textContent="Error de conexión"; toast("No se pudo inicializar Firebase."); }
 }

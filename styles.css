@@ -932,6 +932,13 @@ textarea:focus-visible{
   gap:15px;
   margin:20px 0 33px;
 }
+.tools-stats-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  max-width:860px;
+}
+.tools-charts{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+}
 .stat-card{
   position:relative;
   min-height:128px;
@@ -1373,6 +1380,16 @@ footer{
   border-radius:12px;
   background:linear-gradient(145deg,#fff,#f8f9fb);
 }
+.tool-photo-field>input[type=file]{
+  width:100%;
+  padding:10px;
+  border:1px dashed #d9dde5;
+  border-radius:9px;
+  background:#fff;
+  color:#596170;
+  font:inherit;
+  font-size:11px;
+}
 .equipment-photo-controls{
   display:flex;
   align-items:center;
@@ -1668,6 +1685,9 @@ footer{
   object-fit:contain;
 }
 @media(max-width:760px){
+  .tools-charts{
+    grid-template-columns:1fr;
+  }
   .equipment-photo-field{
     padding:12px;
   }

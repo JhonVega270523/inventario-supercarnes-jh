@@ -2,6 +2,7 @@
 
 Aplicación responsive en HTML, CSS y JavaScript con Cloud Firestore. Incluye:
 - Registro y edición de equipos.
+- Sección independiente de inventario de herramientas con fotos, filtros por nombre/tipo/existencias, indicadores y gráficos interactivos, exportación a Excel de los resultados filtrados, observaciones y opciones para agregar, editar o eliminar registros.
 - Captura o selección de hasta cuatro fotos por equipo desde el formulario de registro, con vista previa, giro y recorte individuales, eliminación y optimización automática.
 - Tipo de equipo personalizado: al seleccionar “Otro” en el inventario maestro, se solicita especificar el tipo.
 - Eliminación permanente de equipos desde el inventario, con confirmación antes de borrar.
@@ -62,7 +63,16 @@ Colección `equipos`, un documento por equipo:
 - `novedades`: arreglo de incidentes con tipo, fecha, reportante, descripción, responsables anterior/nuevo cuando aplique, hasta dos evidencias JPEG optimizadas en base64 y fecha de registro.
 - `createdAt`, `updatedAt`: fechas de creación/actualización.
 
-La aplicación escucha la colección en tiempo real, por lo que los cambios guardados desde un dispositivo aparecen automáticamente en los demás dispositivos conectados. El botón **Eliminar** en el inventario borra permanentemente el documento del equipo, incluidos sus historiales de asignación, recepción y novedades; solicita confirmación antes de hacerlo.
+La aplicación escucha las colecciones en tiempo real, por lo que los cambios guardados desde un dispositivo aparecen automáticamente en los demás dispositivos conectados. El botón **Eliminar** en el inventario borra permanentemente el documento del equipo, incluidos sus historiales de asignación, recepción y novedades; solicita confirmación antes de hacerlo.
+
+Colección `herramientas`, un documento por tipo de herramienta:
+- `nombre`: nombre del tipo, por ejemplo, Destornillador, Alicate, Pinzas, Pela cables o Multímetro.
+- `cantidad`: número entero de unidades disponibles en existencia.
+- `observaciones`: detalles opcionales, como marca o ubicación.
+- `foto`: imagen JPEG optimizada en formato data URL; opcional.
+- `createdAt`, `updatedAt`: fechas de creación/actualización.
+
+El inventario de herramientas registra existencias por tipo y no gestiona préstamos ni devoluciones. Las fotos se comprimen antes de guardarse; los gráficos permiten filtrar por herramienta o por estado de existencias. En producción, las reglas de Firestore deben permitir las operaciones necesarias en `herramientas` solo a los roles autorizados. La regla de ejemplo para esa colección es abierta únicamente para pruebas.
 
 Las fotos del equipo y evidencias se optimizan antes de guardarse en su documento de Firestore (máximo aproximado de 100 KB por imagen). Cada novedad admite hasta dos evidencias. Como Firestore limita el tamaño de cada documento, mantén bajo control el crecimiento de las fotos, firmas y del historial; para un volumen alto de imágenes, considera Firebase Storage.
 

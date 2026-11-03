@@ -1,15 +1,18 @@
-const cacheName = "supercarnes-jh-shell-v1";
+const cacheName = "supercarnes-jh-shell-v3";
 const shellFiles = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
+  "./pwa.js",
+  "./service-worker.js",
   "./firebase-config.js",
   "./logo-data.js",
   "./Logo-JH.png",
   "./xlsx.full.min.js",
   "./html2pdf.bundle.min.js",
   "./manifest.webmanifest",
+  "./favicon-jh-32.png",
   "./pwa-icon-192.png",
   "./pwa-icon-512.png"
 ];
