@@ -1,4 +1,4 @@
-const cacheName = "supercarnes-jh-shell-v3";
+const cacheName = "supercarnes-jh-shell-v4";
 const shellFiles = [
   "./",
   "./index.html",

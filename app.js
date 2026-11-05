@@ -23,6 +23,7 @@ let equipmentPhotoEditRotation = 0;
 let equipmentPhotoEditSelection = null;
 let equipmentPhotoEditDragStart = null;
 let equipmentPhotoEditSession = 0;
+let equipmentPhotoEditTarget = "equipment";
 let equipmentViewerPhotos = [];
 let equipmentViewerIndex = 0;
 let equipmentViewerTouchStart = null;
@@ -128,10 +129,11 @@ function drawEquipmentPhotoEditCanvas() {
     context.strokeRect(x, y, selectionWidth, selectionHeight);
   }
 }
-function openEquipmentPhotoEditor(index) {
-  const photo = equipmentPhotoData[index];
-  if (!photo || equipmentPhotoProcessing) return;
+function openPhotoEditor(photo, target, index = -1) {
+  if (!photo || (target === "equipment" && equipmentPhotoProcessing) || (target === "tool" && toolPhotoProcessing)) return;
   equipmentPhotoEditSession += 1;
+  const editSession = equipmentPhotoEditSession;
+  equipmentPhotoEditTarget = target;
   equipmentPhotoEditIndex = index;
   equipmentPhotoEditRotation = 0;
   equipmentPhotoEditSelection = null;
@@ -143,17 +145,25 @@ function openEquipmentPhotoEditor(index) {
   equipmentPhotoEditImage = new Image();
   $("applyEquipmentPhotoEditBtn").disabled = true;
   equipmentPhotoEditImage.onload = () => {
+    if (equipmentPhotoEditSession !== editSession) return;
     drawEquipmentPhotoEditCanvas();
     $("rotateEquipmentPhotoBtn").disabled = false;
     $("clearEquipmentPhotoCropBtn").disabled = false;
     $("applyEquipmentPhotoEditBtn").disabled = false;
   };
   equipmentPhotoEditImage.onerror = () => {
+    if (equipmentPhotoEditSession !== editSession) return;
     equipmentPhotoEditImage = null;
     toast("No fue posible abrir la foto para editarla.");
   };
   equipmentPhotoEditImage.src = photo;
   openDialog("equipmentPhotoEditor");
+}
+function openEquipmentPhotoEditor(index) {
+  openPhotoEditor(equipmentPhotoData[index], "equipment", index);
+}
+function openToolPhotoEditor() {
+  openPhotoEditor(toolPhotoData, "tool");
 }
 function equipmentPhotoCanvasPoint(event) {
   const canvas = $("equipmentPhotoEditCanvas");
@@ -440,6 +450,7 @@ function setToolPhoto(photo = "") {
   preview.innerHTML = photo ? `
     <div class="equipment-photo-card">
       <img src="${escapeHTML(photo)}" alt="Vista previa de la herramienta">
+      <button type="button" class="btn btn-outline equipment-photo-edit" data-edit-tool-photo aria-label="Girar o recortar foto de la herramienta">Girar / recortar</button>
       <button type="button" class="btn btn-outline equipment-photo-remove" data-remove-tool-photo>Quitar foto</button>
     </div>` : "";
   preview.hidden = !photo;
@@ -2226,6 +2237,10 @@ $("clearToolFiltersBtn").addEventListener("click", () => {
 });
 $("toolPhotoInput").addEventListener("change", handleToolPhotoChange);
 $("toolPhotoPreview").addEventListener("click", event => {
+  if (event.target.closest("[data-edit-tool-photo]")) {
+    openToolPhotoEditor();
+    return;
+  }
   if (!event.target.closest("[data-remove-tool-photo]") || toolPhotoProcessing) return;
   setToolPhoto();
   $("toolPhotoStatus").textContent = "La foto se quitará al guardar los cambios.";
@@ -2376,7 +2391,8 @@ function endEquipmentPhotoCropSelection() {
 $("equipmentPhotoEditCanvas").addEventListener("pointerup", endEquipmentPhotoCropSelection);
 $("equipmentPhotoEditCanvas").addEventListener("pointercancel", endEquipmentPhotoCropSelection);
 $("applyEquipmentPhotoEditBtn").addEventListener("click", async () => {
-  if (equipmentPhotoEditIndex < 0 || !equipmentPhotoEditImage) return;
+  if (!equipmentPhotoEditImage || (equipmentPhotoEditTarget === "equipment" && equipmentPhotoEditIndex < 0)) return;
+  const target = equipmentPhotoEditTarget;
   const editIndex = equipmentPhotoEditIndex;
   const editSession = equipmentPhotoEditSession;
   const button = $("applyEquipmentPhotoEditBtn");
@@ -2384,9 +2400,15 @@ $("applyEquipmentPhotoEditBtn").addEventListener("click", async () => {
   try {
     const editedPhoto = await finishEquipmentPhotoCrop();
     if (!$("equipmentPhotoEditor").open || equipmentPhotoEditSession !== editSession) return;
-    equipmentPhotoData[editIndex] = editedPhoto;
-    setEquipmentPhotos(equipmentPhotoData);
-    $("equipmentPhotoStatus").textContent = `Foto ${editIndex + 1} girada o recortada.`;
+    if (target === "tool") {
+      toolPhotoData = editedPhoto;
+      setToolPhoto(toolPhotoData);
+      $("toolPhotoStatus").textContent = "Foto girada o recortada.";
+    } else {
+      equipmentPhotoData[editIndex] = editedPhoto;
+      setEquipmentPhotos(equipmentPhotoData);
+      $("equipmentPhotoStatus").textContent = `Foto ${editIndex + 1} girada o recortada.`;
+    }
     closeDialog("equipmentPhotoEditor");
   } catch (err) {
     console.error(err);
@@ -2401,6 +2423,7 @@ $("equipmentPhotoEditor").addEventListener("close", () => {
   equipmentPhotoEditImage = null;
   equipmentPhotoEditSelection = null;
   equipmentPhotoEditDragStart = null;
+  equipmentPhotoEditTarget = "equipment";
   const canvas = $("equipmentPhotoEditCanvas");
   canvas.width = 0;
   canvas.height = 0;

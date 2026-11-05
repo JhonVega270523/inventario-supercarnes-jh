@@ -2,7 +2,7 @@
 
 Aplicación responsive en HTML, CSS y JavaScript con Cloud Firestore. Incluye:
 - Registro y edición de equipos.
-- Sección independiente de inventario de herramientas con fotos, filtros por nombre/tipo/existencias, indicadores y gráficos interactivos, exportación a Excel de los resultados filtrados, observaciones y opciones para agregar, editar o eliminar registros.
+- Sección independiente de inventario de herramientas con fotos editables (giro y recorte), filtros por nombre/tipo/existencias, indicadores y gráficos interactivos, exportación a Excel de los resultados filtrados, observaciones y opciones para agregar, editar o eliminar registros.
 - Captura o selección de hasta cuatro fotos por equipo desde el formulario de registro, con vista previa, giro y recorte individuales, eliminación y optimización automática.
 - Tipo de equipo personalizado: al seleccionar “Otro” en el inventario maestro, se solicita especificar el tipo.
 - Eliminación permanente de equipos desde el inventario, con confirmación antes de borrar.
