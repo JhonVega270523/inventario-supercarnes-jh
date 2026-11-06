@@ -3,11 +3,12 @@
 Aplicación responsive en HTML, CSS y JavaScript con Cloud Firestore. Incluye:
 - Registro y edición de equipos.
 - Sección independiente de inventario de herramientas con fotos editables (giro y recorte), filtros por nombre/tipo/existencias, indicadores y gráficos interactivos, exportación a Excel de los resultados filtrados, observaciones y opciones para agregar, editar o eliminar registros.
+- Secciones para registrar redes Wi‑Fi y datos de usuario/contacto de cada área.
 - Captura o selección de hasta cuatro fotos por equipo desde el formulario de registro, con vista previa, giro y recorte individuales, eliminación y optimización automática.
 - Tipo de equipo personalizado: al seleccionar “Otro” en el inventario maestro, se solicita especificar el tipo.
 - Eliminación permanente de equipos desde el inventario, con confirmación antes de borrar.
 - Confirmaciones con diálogos personalizados acordes al diseño del sistema.
-- Los formularios de equipo, asignación y recepción se cierran inmediatamente al guardar; si el guardado falla, vuelven a abrirse con los datos ingresados. Los diálogos también se pueden cerrar haciendo clic fuera de ellos.
+- Los formularios de equipo, asignación y recepción se cierran inmediatamente al guardar; si el guardado falla, vuelven a abrirse con los datos ingresados. Los modales de esos formularios no se cierran al hacer clic fuera; se cierran con sus botones o al completar el guardado.
 - Marca, tipo, estado, periféricos, disponibilidad y persona que asigna.
 - Asignaciones con responsable, área, fecha, periféricos, estado, recibido por y firma dibujada.
 - Recepciones con persona que devuelve, responsable que recibe, área, fecha, periféricos, estado y firma dibujada.
@@ -43,6 +44,7 @@ La aplicación cliente no debe quedar abierta a todo el mundo. Antes de usar dat
 3. No uses las reglas abiertas del archivo `firestore.rules.example` en producción. Son solo una muestra para pruebas sin datos reales.
 4. Configura roles si solo ciertos usuarios pueden asignar o recibir equipos.
 5. Si limitas permisos por operación, autoriza también `delete` únicamente a los roles que deban eliminar equipos.
+6. Las secciones `internet` y `areas` almacenan contraseñas en texto normal en Firestore. No habilites estas funciones con datos reales hasta tener autenticación y reglas que permitan leerlas solo a personas autorizadas. Ocultar las contraseñas en la pantalla no las cifra ni protege de quienes tengan acceso de lectura a Firestore.
 
 ## 3. Ejecutar localmente
 Como se usan módulos JavaScript, abre la carpeta mediante un servidor local (no con `file://`). Puedes usar la extensión **Live Server** de VS Code. Luego abre la dirección local que te muestre.
@@ -73,6 +75,18 @@ Colección `herramientas`, un documento por tipo de herramienta:
 - `createdAt`, `updatedAt`: fechas de creación/actualización.
 
 El inventario de herramientas registra existencias por tipo y no gestiona préstamos ni devoluciones. Las fotos se comprimen antes de guardarse; los gráficos permiten filtrar por herramienta o por estado de existencias. En producción, las reglas de Firestore deben permitir las operaciones necesarias en `herramientas` solo a los roles autorizados. La regla de ejemplo para esa colección es abierta únicamente para pruebas.
+
+Colección `internet`, un documento por red:
+- `nombreRed`: nombre de la red Wi‑Fi.
+- `contrasena`: contraseña de la red, guardada en texto normal.
+- `createdAt`, `updatedAt`: fechas de creación/actualización.
+
+Colección `areas`, un documento por área:
+- `area`, `usuario`, `contrasenaUsuario`, `correo`, `contrasenaCorreo`, `telefono`.
+- Las contraseñas se guardan en texto normal; la interfaz las oculta por defecto y permite mostrarlas manualmente.
+- `createdAt`, `updatedAt`: fechas de creación/actualización.
+
+Las contraseñas de estas colecciones no están cifradas. Configura Firebase Authentication y reglas restrictivas antes de usar información real; cualquier cliente autorizado para leerlas podrá obtener su contenido.
 
 Las fotos del equipo y evidencias se optimizan antes de guardarse en su documento de Firestore (máximo aproximado de 100 KB por imagen). Cada novedad admite hasta dos evidencias. Como Firestore limita el tamaño de cada documento, mantén bajo control el crecimiento de las fotos, firmas y del historial; para un volumen alto de imágenes, considera Firebase Storage.
 

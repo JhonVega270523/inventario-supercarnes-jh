@@ -11,5 +11,15 @@ service cloud.firestore {
       // No publiques estas reglas en producción.
       allow read, write: if true;
     }
+    match /internet/{redId} {
+      // DEMO solamente: contiene contraseñas de redes en texto normal.
+      // No publiques estas reglas en producción.
+      allow read, write: if true;
+    }
+    match /areas/{areaId} {
+      // DEMO solamente: contiene contraseñas de cuentas en texto normal.
+      // No publiques estas reglas en producción.
+      allow read, write: if true;
+    }
   }
 }

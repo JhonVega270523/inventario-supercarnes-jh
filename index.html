@@ -30,6 +30,8 @@
         <button class="nav-item active" data-view="dashboard" aria-current="page"><span>▦</span> Panel general</button>
         <button class="nav-item" data-view="inventory"><span>▤</span> Inventario</button>
         <button class="nav-item" data-view="tools"><span>⚒</span> Herramientas</button>
+        <button class="nav-item" data-view="internet"><span>◉</span> Internet</button>
+        <button class="nav-item" data-view="areas"><span>▦</span> Áreas</button>
         <button class="nav-item" data-view="assignments"><span>↗</span> Asignaciones</button>
         <button class="nav-item" data-view="returns"><span>↙</span> Recepciones</button>
       </nav>
@@ -136,6 +138,30 @@
         </table></div></div>
       </section>
 
+      <section class="view" id="internetView">
+        <div class="section-heading">
+          <div><h3>Redes de Internet</h3><p>Datos de las redes Wi‑Fi registradas</p></div>
+          <button type="button" class="btn btn-primary" id="newInternetBtn">＋ Agregar red</button>
+        </div>
+        <p class="notice credential-warning" role="note"><strong>Importante:</strong> las contraseñas se guardan en Firestore sin cifrado. Cualquier persona con permiso de lectura en la base de datos puede verlas.</p>
+        <div class="table-card"><div class="table-wrap"><table>
+          <thead><tr><th>Nombre de la red</th><th>Contraseña</th><th>Acciones</th></tr></thead>
+          <tbody id="internetTable"><tr><td colspan="3" class="empty-cell">Conecta Firebase para cargar las redes.</td></tr></tbody>
+        </table></div></div>
+      </section>
+
+      <section class="view" id="areasView">
+        <div class="section-heading">
+          <div><h3>Áreas</h3><p>Usuarios y datos de contacto de cada área</p></div>
+          <button type="button" class="btn btn-primary" id="newAreaBtn">＋ Agregar área</button>
+        </div>
+        <p class="notice credential-warning" role="note"><strong>Importante:</strong> las contraseñas se guardan en Firestore sin cifrado. Cualquier persona con permiso de lectura en la base de datos puede verlas.</p>
+        <div class="table-card"><div class="table-wrap"><table>
+          <thead><tr><th>Área</th><th>Usuario</th><th>Contraseña usuario</th><th>Correo</th><th>Contraseña correo</th><th>Teléfono</th><th>Acciones</th></tr></thead>
+          <tbody id="areasTable"><tr><td colspan="7" class="empty-cell">Conecta Firebase para cargar las áreas.</td></tr></tbody>
+        </table></div></div>
+      </section>
+
       <section class="view" id="assignmentsView">
         <div class="section-heading"><div><h3>Historial de asignaciones</h3><p>Entrega de equipos y responsables</p></div><div class="heading-actions"><button class="btn btn-outline" id="exportAssignmentsBtn">📥 Exportar asignaciones a Excel</button></div></div>
         <div class="table-card"><div class="table-wrap"><table><thead><tr>
@@ -169,7 +195,7 @@
     </main>
   </div>
 
-  <dialog id="equipmentDialog" class="modal">
+  <dialog id="equipmentDialog" class="modal" closedby="closerequest">
     <form id="equipmentForm" class="modal-form">
       <div class="modal-header"><div><p class="eyebrow">INVENTARIO MAESTRO</p><h2 id="equipmentDialogTitle">Registrar equipo</h2></div><button type="button" class="icon-btn" data-close="equipmentDialog">✕</button></div>
       <input type="hidden" id="equipmentId">
@@ -323,7 +349,60 @@
     </form>
   </dialog>
 
-  <dialog id="assignmentDialog" class="modal">
+  <dialog id="internetDialog" class="modal">
+    <form id="internetForm" class="modal-form">
+      <div class="modal-header"><div><p class="eyebrow">REDES DE INTERNET</p><h2 id="internetDialogTitle">Agregar red</h2></div><button type="button" class="icon-btn" data-close="internetDialog" aria-label="Cerrar formulario">✕</button></div>
+      <input type="hidden" id="internetId">
+      <div class="form-grid">
+        <label class="full">Nombre de la red
+          <input id="internetName" maxlength="120" required autocomplete="off" placeholder="Ej. JH-Administrativa">
+        </label>
+        <label class="full">Contraseña
+          <span class="password-input-wrap">
+            <input id="internetPassword" type="password" maxlength="256" required autocomplete="off">
+            <button type="button" class="password-toggle" data-toggle-password="internetPassword" aria-label="Mostrar contraseña">Mostrar</button>
+          </span>
+        </label>
+      </div>
+      <div class="modal-actions"><button type="button" class="btn btn-outline" data-close="internetDialog">Cancelar</button><button type="submit" class="btn btn-primary">Guardar red</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="areaDialog" class="modal">
+    <form id="areaForm" class="modal-form">
+      <div class="modal-header"><div><p class="eyebrow">DATOS DE ÁREA</p><h2 id="areaDialogTitle">Agregar área</h2></div><button type="button" class="icon-btn" data-close="areaDialog" aria-label="Cerrar formulario">✕</button></div>
+      <input type="hidden" id="areaId">
+      <div class="form-grid">
+        <label>Área
+          <input id="areaName" maxlength="120" required autocomplete="off" placeholder="Ej. Contabilidad">
+        </label>
+        <label>Usuario
+          <input id="areaUser" maxlength="160" required autocomplete="off">
+        </label>
+        <label class="full">Contraseña de usuario
+          <span class="password-input-wrap">
+            <input id="areaUserPassword" type="password" maxlength="256" required autocomplete="off">
+            <button type="button" class="password-toggle" data-toggle-password="areaUserPassword" aria-label="Mostrar contraseña">Mostrar</button>
+          </span>
+        </label>
+        <label>Correo
+          <input id="areaEmail" type="email" maxlength="254" required autocomplete="off" placeholder="usuario@empresa.com">
+        </label>
+        <label>Teléfono
+          <input id="areaPhone" type="tel" maxlength="40" required autocomplete="off" placeholder="Número de contacto">
+        </label>
+        <label class="full">Contraseña de correo
+          <span class="password-input-wrap">
+            <input id="areaEmailPassword" type="password" maxlength="256" required autocomplete="off">
+            <button type="button" class="password-toggle" data-toggle-password="areaEmailPassword" aria-label="Mostrar contraseña">Mostrar</button>
+          </span>
+        </label>
+      </div>
+      <div class="modal-actions"><button type="button" class="btn btn-outline" data-close="areaDialog">Cancelar</button><button type="submit" class="btn btn-primary">Guardar área</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="assignmentDialog" class="modal" closedby="closerequest">
     <form id="assignmentForm" class="modal-form">
       <div class="modal-header"><div><p class="eyebrow">ENTREGA DE ACTIVO</p><h2>Asignar equipo</h2><p class="modal-subtitle" id="assignmentEquipmentLabel"></p></div><button type="button" class="icon-btn" data-close="assignmentDialog">✕</button></div>
       <input type="hidden" id="assignmentEquipmentId">
@@ -361,7 +440,7 @@
     </form>
   </dialog>
 
-  <dialog id="returnDialog" class="modal">
+  <dialog id="returnDialog" class="modal" closedby="closerequest">
     <form id="returnForm" class="modal-form">
       <div class="modal-header"><div><p class="eyebrow">DEVOLUCIÓN DE ACTIVO</p><h2>Recibir equipo</h2><p class="modal-subtitle" id="returnEquipmentLabel"></p></div><button type="button" class="icon-btn" data-close="returnDialog">✕</button></div>
       <input type="hidden" id="returnEquipmentId">
@@ -490,6 +569,6 @@
   <script src="xlsx.full.min.js" onerror="this.onerror=null;this.src='https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js'"></script>
   <script src="html2pdf.bundle.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'"></script>
   <script src="./pwa.js" defer></script>
-  <script type="module" src="app.js?v=20261105_1"></script>
+  <script type="module" src="app.js?v=20261106_1"></script>
 </body>
 </html>

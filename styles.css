@@ -1390,6 +1390,41 @@ footer{
   font:inherit;
   font-size:11px;
 }
+.credential-warning{
+  border-color:#efcf89;
+  background:#fff8e7;
+  color:#755414;
+}
+.password-input-wrap{
+  display:flex;
+  align-items:stretch;
+  gap:7px;
+  width:100%;
+}
+.password-input-wrap input{
+  flex:1;
+  min-width:0;
+}
+.password-toggle,
+.secret-toggle{
+  flex-shrink:0;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:#fff;
+  color:#45484e;
+  padding:8px 10px;
+  font-size:11px;
+  font-weight:700;
+}
+.password-toggle:hover,
+.secret-toggle:hover{
+  border-color:var(--red);
+  color:var(--red);
+}
+.secret-value{
+  font-family:ui-monospace,Consolas,monospace;
+  letter-spacing:.08em;
+}
 .equipment-photo-controls{
   display:flex;
   align-items:center;

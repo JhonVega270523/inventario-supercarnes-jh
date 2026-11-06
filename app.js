@@ -6,9 +6,13 @@ import { LOGO_JH_DATA_URL } from "./logo-data.js";
 const $ = id => document.getElementById(id);
 const equipmentCollection = "equipos";
 const toolsCollection = "herramientas";
+const internetCollection = "internet";
+const areasCollection = "areas";
 let db = null;
 let equipment = [];
 let tools = [];
+let internetNetworks = [];
+let areaRecords = [];
 let toolPhotoData = "";
 let toolPhotoProcessing = false;
 let toolPhotoSession = 0;
@@ -436,6 +440,228 @@ function listenToTools() {
     console.error(err);
     toast("No fue posible sincronizar el inventario de herramientas. Revisa la conexión y las reglas de Firebase.");
   });
+}
+function listenToInternet() {
+  if (!db) return;
+  onSnapshot(collection(db, internetCollection), snapshot => {
+    internetNetworks = snapshot.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => String(a.nombreRed || "").localeCompare(String(b.nombreRed || ""), "es", { sensitivity: "base" }));
+    renderInternet();
+  }, err => {
+    console.error(err);
+    toast("No fue posible sincronizar las redes de Internet. Revisa la conexión y las reglas de Firebase.");
+  });
+}
+function listenToAreas() {
+  if (!db) return;
+  onSnapshot(collection(db, areasCollection), snapshot => {
+    areaRecords = snapshot.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => String(a.area || "").localeCompare(String(b.area || ""), "es", { sensitivity: "base" }));
+    renderAreas();
+  }, err => {
+    console.error(err);
+    toast("No fue posible sincronizar las áreas. Revisa la conexión y las reglas de Firebase.");
+  });
+}
+function secretCell(collectionName, recordId, field, label) {
+  return `<span class="secret-value" data-secret-display="${escapeHTML(recordId)}-${field}">••••••••</span> <button type="button" class="secret-toggle" data-secret-collection="${collectionName}" data-secret-id="${escapeHTML(recordId)}" data-secret-field="${field}" data-secret-label="${escapeHTML(label)}" aria-label="Mostrar ${escapeHTML(label)}">Mostrar</button>`;
+}
+function renderInternet() {
+  $("internetTable").innerHTML = internetNetworks.length ? internetNetworks.map(network => `
+    <tr>
+      <td><strong class="equipment-name">${escapeHTML(network.nombreRed || "Sin nombre")}</strong></td>
+      <td>${secretCell(internetCollection, network.id, "contrasena", "contraseña de red")}</td>
+      <td><div class="actions">
+        <button type="button" class="action-btn" data-internet-action="edit" data-internet-id="${escapeHTML(network.id)}" aria-label="Editar ${escapeHTML(network.nombreRed || "red")}" title="Editar">✎</button>
+        <button type="button" class="action-btn action-btn-delete" data-internet-action="delete" data-internet-id="${escapeHTML(network.id)}" aria-label="Eliminar ${escapeHTML(network.nombreRed || "red")}" title="Eliminar">⌫</button>
+      </div></td>
+    </tr>`).join("") : '<tr><td colspan="3" class="empty-cell">Aún no hay redes registradas.</td></tr>';
+}
+function renderAreas() {
+  $("areasTable").innerHTML = areaRecords.length ? areaRecords.map(area => `
+    <tr>
+      <td><strong class="equipment-name">${escapeHTML(area.area || "Sin nombre")}</strong></td>
+      <td>${escapeHTML(area.usuario || "")}</td>
+      <td>${secretCell(areasCollection, area.id, "contrasenaUsuario", "contraseña de usuario")}</td>
+      <td>${escapeHTML(area.correo || "")}</td>
+      <td>${secretCell(areasCollection, area.id, "contrasenaCorreo", "contraseña de correo")}</td>
+      <td>${escapeHTML(area.telefono || "")}</td>
+      <td><div class="actions">
+        <button type="button" class="action-btn" data-area-action="edit" data-area-id="${escapeHTML(area.id)}" aria-label="Editar área ${escapeHTML(area.area || "")}" title="Editar">✎</button>
+        <button type="button" class="action-btn action-btn-delete" data-area-action="delete" data-area-id="${escapeHTML(area.id)}" aria-label="Eliminar área ${escapeHTML(area.area || "")}" title="Eliminar">⌫</button>
+      </div></td>
+    </tr>`).join("") : '<tr><td colspan="7" class="empty-cell">Aún no hay áreas registradas.</td></tr>';
+}
+function showStoredSecret(button) {
+  const { secretCollection, secretId, secretField, secretLabel } = button.dataset;
+  const record = secretCollection === internetCollection
+    ? internetNetworks.find(item => item.id === secretId)
+    : areaRecords.find(item => item.id === secretId);
+  if (!record || !["contrasena", "contrasenaUsuario", "contrasenaCorreo"].includes(secretField)) return;
+  const allowedField = secretCollection === internetCollection ? secretField === "contrasena" : secretField !== "contrasena";
+  if (!allowedField) return;
+  const display = button.closest("td")?.querySelector(".secret-value");
+  if (!display) return;
+  const visible = button.dataset.secretVisible === "true";
+  display.textContent = visible ? "••••••••" : String(record[secretField] || "");
+  button.dataset.secretVisible = String(!visible);
+  button.textContent = visible ? "Mostrar" : "Ocultar";
+  button.setAttribute("aria-label", `${visible ? "Mostrar" : "Ocultar"} ${secretLabel}`);
+  button.setAttribute("aria-pressed", String(!visible));
+}
+function resetPasswordToggles(form) {
+  form.querySelectorAll("[data-toggle-password]").forEach(button => {
+    const input = $(button.dataset.togglePassword);
+    input.type = "password";
+    button.textContent = "Mostrar";
+    button.setAttribute("aria-label", "Mostrar contraseña");
+  });
+}
+function resetInternetForm() {
+  $("internetForm").reset();
+  $("internetId").value = "";
+  resetPasswordToggles($("internetForm"));
+  $("internetDialogTitle").textContent = "Agregar red";
+}
+function openNewInternetForm() {
+  resetInternetForm();
+  openDialog("internetDialog");
+}
+function editInternet(id) {
+  const network = internetNetworks.find(item => item.id === id);
+  if (!network) return;
+  resetInternetForm();
+  $("internetId").value = network.id;
+  $("internetName").value = network.nombreRed || "";
+  $("internetPassword").value = network.contrasena || "";
+  $("internetDialogTitle").textContent = "Editar red";
+  openDialog("internetDialog");
+}
+async function saveInternet(event) {
+  event.preventDefault();
+  if (!db) {
+    toast("Configura Firebase para guardar las redes de Internet.");
+    return;
+  }
+  const id = $("internetId").value;
+  const data = {
+    nombreRed: $("internetName").value.trim(),
+    contrasena: $("internetPassword").value,
+    updatedAt: serverTimestamp()
+  };
+  closeDialog("internetDialog");
+  toast(id ? "Actualizando red..." : "Guardando red...");
+  try {
+    if (id) await updateDoc(doc(db, internetCollection, id), data);
+    else await addDoc(collection(db, internetCollection), { ...data, createdAt: serverTimestamp() });
+    toast(id ? "Red actualizada correctamente." : "Red agregada correctamente.");
+  } catch (err) {
+    console.error(err);
+    openDialog("internetDialog");
+    toast("No se pudo guardar la red. Verifica la conexión y las reglas de Firebase.");
+  }
+}
+async function deleteInternet(id, button) {
+  const network = internetNetworks.find(item => item.id === id);
+  if (!network) return;
+  if (!db) {
+    toast("Configura Firebase para eliminar redes.");
+    return;
+  }
+  if (!await confirmAction({
+    title: "¿Eliminar esta red?",
+    message: `Se eliminará "${network.nombreRed || "red"}" de forma permanente.`,
+    confirmText: "Eliminar red",
+    destructive: true
+  })) return;
+  button.disabled = true;
+  try {
+    await deleteDoc(doc(db, internetCollection, id));
+    toast("Red eliminada correctamente.");
+  } catch (err) {
+    console.error(err);
+    toast("No se pudo eliminar la red. Verifica la conexión y las reglas de Firebase.");
+  } finally {
+    button.disabled = false;
+  }
+}
+function resetAreaForm() {
+  $("areaForm").reset();
+  $("areaId").value = "";
+  resetPasswordToggles($("areaForm"));
+  $("areaDialogTitle").textContent = "Agregar área";
+}
+function openNewAreaForm() {
+  resetAreaForm();
+  openDialog("areaDialog");
+}
+function editArea(id) {
+  const area = areaRecords.find(item => item.id === id);
+  if (!area) return;
+  resetAreaForm();
+  $("areaId").value = area.id;
+  $("areaName").value = area.area || "";
+  $("areaUser").value = area.usuario || "";
+  $("areaUserPassword").value = area.contrasenaUsuario || "";
+  $("areaEmail").value = area.correo || "";
+  $("areaEmailPassword").value = area.contrasenaCorreo || "";
+  $("areaPhone").value = area.telefono || "";
+  $("areaDialogTitle").textContent = "Editar área";
+  openDialog("areaDialog");
+}
+async function saveArea(event) {
+  event.preventDefault();
+  if (!db) {
+    toast("Configura Firebase para guardar las áreas.");
+    return;
+  }
+  const id = $("areaId").value;
+  const data = {
+    area: $("areaName").value.trim(),
+    usuario: $("areaUser").value.trim(),
+    contrasenaUsuario: $("areaUserPassword").value,
+    correo: $("areaEmail").value.trim(),
+    contrasenaCorreo: $("areaEmailPassword").value,
+    telefono: $("areaPhone").value.trim(),
+    updatedAt: serverTimestamp()
+  };
+  closeDialog("areaDialog");
+  toast(id ? "Actualizando área..." : "Guardando área...");
+  try {
+    if (id) await updateDoc(doc(db, areasCollection, id), data);
+    else await addDoc(collection(db, areasCollection), { ...data, createdAt: serverTimestamp() });
+    toast(id ? "Área actualizada correctamente." : "Área agregada correctamente.");
+  } catch (err) {
+    console.error(err);
+    openDialog("areaDialog");
+    toast("No se pudo guardar el área. Verifica la conexión y las reglas de Firebase.");
+  }
+}
+async function deleteArea(id, button) {
+  const area = areaRecords.find(item => item.id === id);
+  if (!area) return;
+  if (!db) {
+    toast("Configura Firebase para eliminar áreas.");
+    return;
+  }
+  if (!await confirmAction({
+    title: "¿Eliminar esta área?",
+    message: `Se eliminarán los datos de "${area.area || "área"}" de forma permanente.`,
+    confirmText: "Eliminar área",
+    destructive: true
+  })) return;
+  button.disabled = true;
+  try {
+    await deleteDoc(doc(db, areasCollection, id));
+    toast("Área eliminada correctamente.");
+  } catch (err) {
+    console.error(err);
+    toast("No se pudo eliminar el área. Verifica la conexión y las reglas de Firebase.");
+  } finally {
+    button.disabled = false;
+  }
 }
 function toolPhotoCell(tool) {
   if (typeof tool.foto !== "string" || !tool.foto.startsWith("data:image/jpeg;base64,")) {
@@ -2208,7 +2434,7 @@ function navigate(view) {
     else b.removeAttribute("aria-current");
   });
   $(`${view}View`).classList.add("active");
-  const titles={dashboard:"Panel general",inventory:"Inventario de equipos",tools:"Inventario de herramientas",assignments:"Historial de asignaciones",returns:"Historial de recepciones"};
+  const titles={dashboard:"Panel general",inventory:"Inventario de equipos",tools:"Inventario de herramientas",internet:"Redes de Internet",areas:"Áreas",assignments:"Historial de asignaciones",returns:"Historial de recepciones"};
   $("pageTitle").textContent=titles[view]||"Panel general";
   $("newEquipmentBtn").hidden = view !== "dashboard";
   $("sidebar").classList.remove("open");
@@ -2218,11 +2444,36 @@ document.querySelectorAll(".nav-item").forEach(b=>b.addEventListener("click",()=
 document.querySelectorAll("[data-goto]").forEach(b=>b.addEventListener("click",()=>navigate(b.dataset.goto)));
 document.querySelectorAll("dialog").forEach(dialog => {
   dialog.addEventListener("click", event => {
-    if (event.target === dialog) dialog.close();
+    if (event.target === dialog && !["equipmentDialog", "assignmentDialog", "returnDialog"].includes(dialog.id)) {
+      dialog.close();
+    }
   });
 });
 document.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click",()=>closeDialog(b.dataset.close)));
 $("brandLogoButton").addEventListener("click", () => $("brandLogoViewer").showModal());
+$("newInternetBtn").addEventListener("click", openNewInternetForm);
+$("internetForm").addEventListener("submit", saveInternet);
+$("internetTable").addEventListener("click", event => {
+  const button = event.target.closest("[data-internet-action]");
+  if (!button) return;
+  if (button.dataset.internetAction === "edit") editInternet(button.dataset.internetId);
+  else if (button.dataset.internetAction === "delete") deleteInternet(button.dataset.internetId, button);
+});
+$("newAreaBtn").addEventListener("click", openNewAreaForm);
+$("areaForm").addEventListener("submit", saveArea);
+$("areasTable").addEventListener("click", event => {
+  const button = event.target.closest("[data-area-action]");
+  if (!button) return;
+  if (button.dataset.areaAction === "edit") editArea(button.dataset.areaId);
+  else if (button.dataset.areaAction === "delete") deleteArea(button.dataset.areaId, button);
+});
+document.querySelectorAll("[data-toggle-password]").forEach(button => button.addEventListener("click", () => {
+  const input = $(button.dataset.togglePassword);
+  const showing = input.type === "password";
+  input.type = showing ? "text" : "password";
+  button.textContent = showing ? "Ocultar" : "Mostrar";
+  button.setAttribute("aria-label", `${showing ? "Ocultar" : "Mostrar"} contraseña`);
+}));
 $("newToolBtn").addEventListener("click", openNewToolForm);
 $("toolForm").addEventListener("submit", saveTool);
 $("toolName").addEventListener("input", event => event.currentTarget.setCustomValidity(""));
@@ -2478,6 +2729,11 @@ document.addEventListener("click", event => {
     renderTools();
     return;
   }
+  const secretButton = event.target.closest("[data-secret-collection]");
+  if (secretButton) {
+    showStoredSecret(secretButton);
+    return;
+  }
   const clearButton = event.target.closest("[data-clear-filters]");
   if (clearButton) {
     clearInventoryFilters();
@@ -2594,7 +2850,9 @@ if (!configReady) {
   $("setupNotice").hidden=false;
   ["statTotal","statAvailable","statAssigned","statOther"].forEach(id=>$(id).textContent="—");
   $("inventoryTable").innerHTML='<tr><td colspan="10" class="empty-cell">Configura Firebase para comenzar a registrar equipos.</td></tr>';
-  $("toolsTable").innerHTML='<tr><td colspan="4" class="empty-cell">Configura Firebase para comenzar a registrar herramientas.</td></tr>';
+  $("toolsTable").innerHTML='<tr><td colspan="5" class="empty-cell">Configura Firebase para comenzar a registrar herramientas.</td></tr>';
+  $("internetTable").innerHTML='<tr><td colspan="3" class="empty-cell">Configura Firebase para comenzar a registrar redes.</td></tr>';
+  $("areasTable").innerHTML='<tr><td colspan="7" class="empty-cell">Configura Firebase para comenzar a registrar áreas.</td></tr>';
   $("toolTypeCount").textContent="—";
   $("toolStockCount").textContent="—";
 } else {
@@ -2604,5 +2862,7 @@ if (!configReady) {
     $("setupNotice").hidden=true;
     listenToEquipment();
     listenToTools();
+    listenToInternet();
+    listenToAreas();
   } catch(err) { console.error(err); $("connectionText").textContent="Error de conexión"; toast("No se pudo inicializar Firebase."); }
 }
